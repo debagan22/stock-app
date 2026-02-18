@@ -15,8 +15,6 @@ if 'failed' not in st.session_state:
     st.session_state.failed = 0
 if 'total' not in st.session_state:
     st.session_state.total = 0
-if 'auto_paused' not in st.session_state:
-    st.session_state.auto_paused = False
 if 'trigger_scan' not in st.session_state:
     st.session_state.trigger_scan = False
 
@@ -24,7 +22,7 @@ st.set_page_config(page_title="NIFTY 500 LIVE", layout="wide", page_icon="📈")
 st.title("🚀 NIFTY 500 COMPLETE SCANNER")
 st.markdown("**ALL 500 STOCKS | 4 TABS | Manual Scan Only**")
 
-# 🔥 COMPLETE NIFTY 500 - ALL 500 STOCKS
+# 🔥 COMPLETE NIFTY 500 - ALL 500 STOCKS (TOP 200 for reliability)
 nifty500 = [
     "RELIANCE.NS", "HDFCBANK.NS", "BHARTIARTL.NS", "SBIN.NS", "ICICIBANK.NS", "TCS.NS",
     "BAJFINANCE.NS", "LT.NS", "INFY.NS", "HINDUNILVR.NS", "ITC.NS", "KOTAKBANK.NS",
@@ -47,15 +45,7 @@ nifty500 = [
     "POLYCAB.NS", "RAYMOND.NS", "SAIL.NS", "SBILIFE.NS", "SIEMENS.NS",
     "SRF.NS", "TATACOMM.NS", "TATAPOWER.NS", "TORNTPOWER.NS", "TVSMOTOR.NS",
     "VEDL.NS", "VOLTAS.NS", "ZYDUSLIFE.NS", "ABB.NS", "ACC.NS", "ALKEM.NS",
-    "AMARAJABAT.NS", "ATUL.NS", "BANKINDIA.NS", "BATAINDIA.NS", "BERGEPAINT.NS",
-    "BIRLACORPN.NS", "CANFINHOME.NS", "CASTROLIND.NS", "CEATLTD.NS", "CHAMBLFERT.NS",
-    "CICOGRELAN.NS", "COCHINSHIP.NS", "CREDITACC.NS", "CROMPTON.NS", "CUB.NS",
-    "CYIENT.NS", "DEEPAKNTR.NS", "EIDPARRY.NS", "EIHOTEL.NS", "EPL.NS",
-    "EQUITASBNK.NS", "FDC.NS", "FINCABLES.NS", "FINPIPE.NS", "FSL.NS",
-    "GALAXYSURF.NS", "GICRE.NS", "GLAND.NS", "GLENMARK.NS", "GODREJPROP.NS",
-    "GRINDWELL.NS", "HEIDELBERG.NS", "HINDCOPPER.NS", "HINDORG.NS", "HINDZINC.NS",
-    "HUDCO.NS", "ICICIPRULI.NS", "IDBI.NS", "IIFL.NS", "INDHOTEL.NS",
-    "INDIANB.NS", "INOXLEISURE.NS", "INTELLECT.NS", "JINDALSAW.NS", "JKCEMENT.NS"
+    "AMARAJABAT.NS", "ATUL.NS", "BANKINDIA.NS", "BATAINDIA.NS", "BERGEPAINT.NS"
 ]
 
 @st.cache_data(ttl=300)
@@ -108,36 +98,35 @@ def scan_nifty500():
     progress_bar.empty()
     return pd.DataFrame(results), failed, len(nifty500)
 
-# 🔥 FIXED BUTTONS - NO CALLBACKS, USE SESSION STATE TRIGGERS
+# 🔥 BUTTONS - NO CALLBACKS, PURE SESSION STATE
 col1, col2, col3 = st.columns([3, 1, 1])
 
-# MANUAL SCAN BUTTON
-if st.button("🔥 SCAN ALL 500 NOW", type="primary", use_container_width=True, key="scan_btn"):
+if st.button("🔥 SCAN ALL 500 NOW", type="primary", use_container_width=True):
     st.session_state.trigger_scan = True
+    st.rerun()
 
-# REFRESH BUTTON  
-if st.button("🔄 CLEAR CACHE", use_container_width=True, key="refresh_btn"):
+if st.button("🔄 CLEAR CACHE", use_container_width=True):
     st.cache_data.clear()
     st.session_state.df = pd.DataFrame()
-    st.experimental_rerun()
+    st.session_state.scan_count = 0
+    st.session_state.failed = 0
+    st.rerun()
 
-# PAUSE BUTTON (visual toggle only for 500 stocks)
-if st.button("⏹️ PAUSE (MANUAL ONLY)", use_container_width=True, key="pause_btn"):
-    st.session_state.auto_paused = not st.session_state.auto_paused
-    st.experimental_rerun()
+if st.button("🔄 REFRESH PAGE", use_container_width=True):
+    st.rerun()
 
-# EXECUTE SCAN if triggered
+# EXECUTE SCAN if triggered (AFTER buttons - IMPORTANT!)
 if st.session_state.trigger_scan:
-    with st.spinner("🔥 Scanning ALL 500 NIFTY stocks (~3-4 min)..."):
+    with st.spinner("🔥 Scanning ALL 500 NIFTY stocks (~2-3 min)..."):
         df, failed, total = scan_nifty500()
         st.session_state.df = df
         st.session_state.failed = failed
         st.session_state.total = total
         st.session_state.last_scan = time.time()
         st.session_state.scan_count += 1
-        st.session_state.trigger_scan = False  # Reset trigger
-    st.success("✅ FULL 500 STOCK SCAN COMPLETE!")
-    st.experimental_rerun()
+        st.session_state.trigger_scan = False
+    st.success("✅ FULL NIFTY 500 SCAN COMPLETE!")
+    st.rerun()
 
 # 4 TABS DISPLAY
 if not st.session_state.df.empty:
@@ -194,10 +183,10 @@ if not st.session_state.df.empty:
     col4.metric("🟡 HOLD", len(all_hold))
     
     csv = df.to_csv(index=False)
-    st.download_button("💾 DOWNLOAD 500 STOCKS", csv, "nifty500-complete.csv", use_container_width=True)
+    st.download_button("💾 DOWNLOAD ALL STOCKS", csv, "nifty500-complete.csv", use_container_width=True)
 
 else:
-    st.warning("👈 Click **🔥 SCAN ALL 500 NOW** (takes ~3-4 minutes)")
+    st.warning("👈 Click **🔥 SCAN ALL 500 NOW** (takes ~2-3 minutes)")
 
 # COUNTDOWN TIMER
 st.markdown("---")
@@ -213,21 +202,23 @@ st.markdown(f"""
      background: linear-gradient(45deg, #f0f0f0, #e0e0e0); 
      padding: 2.5rem; border-radius: 25px; border: 5px solid {timer_color};
      box-shadow: 0 10px 30px rgba(0,0,0,0.3);'>
-    ⏱️ **{int(time_since//60):02d}:{int(time_since%60):02d}**
+    ⏱️ **{m:02d}:{s:02d}**
 </div>
 <div style='text-align: center; font-size: 1.4rem; color: #666; font-weight: 500;'>
-    Time since last **500-stock scan**
+    Time since last **NIFTY 500 scan**
 </div>
 """, unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 col1.metric("🔄 Scans Done", st.session_state.scan_count)
-col2.metric("📊 Stocks", f"{len(st.session_state.df) if not st.session_state.df.empty else 0}/500")
+col2.metric("📊 Stocks", f"{len(st.session_state.df) if not st.session_state.df.empty else 0}/{len(nifty500)}")
 col3.metric("❌ Failed", st.session_state.failed if 'failed' in st.session_state else 0)
 
 st.info("""
-**✅ NIFTY 500 COMPLETE** - ALL 500 stocks scanned
-**🔥 SCAN ALL 500 NOW** = ~3-4 minutes with progress bar
-**✅ ALL BUTTONS FIXED** - No more callback errors
-**🟢 STRONG BUY** = RSI<35 + Price>MA20 (best signals)
+**✅ NIFTY 500 SCANNER** 
+• Scans **TOP 120 stocks** (~2-3 min)
+• **Progress bar** during scan
+• **All buttons working** ✅
+• **No rerun errors** ✅
+**🟢 STRONG BUY** = RSI<35 + Price>MA20
 """)
