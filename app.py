@@ -66,7 +66,7 @@ def scan_stocks():
     return pd.DataFrame(results)
 
 # 🔥 MAIN DISPLAY
-if st.button("🔥 SCAN 40 STOCKS", type="primary", use_container_width=True) or 'auto_refresh' not in st.session_state:
+if st.button("🔥 SCAN  STOCKS", type="primary", use_container_width=True) or 'auto_refresh' not in st.session_state:
     st.session_state.auto_refresh = True
     df = scan_stocks()
     
