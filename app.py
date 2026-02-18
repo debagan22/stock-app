@@ -2,72 +2,82 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 import ta
+import time
 
-st.title("🤖 Indian Stock Auto Analyzer")
-st.markdown("**Scans top NIFTY stocks & gives BUY/HOLD/SELL signals**")
+st.title("🔴 LIVE Indian Stock Analyzer")
+st.markdown("**Auto-refreshes every 30s with real-time BUY/SELL signals**")
 
-# Top 10 NIFTY stocks (change as needed)
+# Top NIFTY stocks
 stocks = ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS", 
           "ICICIBANK.NS", "KOTAKBANK.NS", "SBIN.NS", "BHARTIARTL.NS", "ITC.NS"]
 
-@st.cache_data(ttl=600)  # Refresh every 10 mins
-def analyze_stock(symbol):
-    ticker = yf.Ticker(symbol)
-    data = ticker.history(period="3mo")
-    if data.empty:
-        return None
+# Auto-refresh button
+if st.button("🔄 Refresh Now") or st.session_state.get('refresh', False):
+    st.session_state.refresh = True
+    st.rerun()
+
+# Auto-refresh timer
+placeholder = st.empty()
+with placeholder.container():
+    st.write("⏱️ **Next auto-refresh:** 30s")
     
-    # Calculate indicators
-    data['RSI'] = ta.momentum.RSIIndicator(data['Close']).rsi()
-    macd = ta.trend.MACD(data['Close'])
-    data['MACD'] = macd.macd()
-    data['Signal'] = macd.macd_signal()
+    # Analyze all stocks
+    progress = st.progress(0)
+    results = []
     
-    latest = data.iloc[-1]
-    price = latest['Close']
+    for i, symbol in enumerate(stocks):
+        ticker = yf.Ticker(symbol)
+        data = ticker.history(period="1mo")  # More recent data for faster load
+        
+        if not data.empty:
+            # Real-time indicators
+            data['RSI'] = ta.momentum.RSIIndicator(data['Close']).rsi()
+            macd = ta.trend.MACD(data['Close'])
+            data['MACD'] = macd.macd()
+            data['MACD_Signal'] = macd.macd_signal()
+            
+            latest = data.iloc[-1]
+            price = latest['Close']
+            change = ((price - data['Close'].iloc[-2]) / data['Close'].iloc[-2]) * 100
+            
+            # Live signals
+            rsi = latest['RSI']
+            macd_bull = latest['MACD'] > latest['MACD_Signal']
+            
+            if rsi < 35 and macd_bull and change > 0:
+                signal = "🟢 **STRONG BUY**"
+            elif rsi > 65 or not macd_bull:
+                signal = "🔴 **SELL**"
+            else:
+                signal = "🟡 **HOLD**"
+            
+            results.append({
+                'Stock': symbol.replace('.NS',''),
+                '₹ Price': f"{price:.2f}",
+                'Chg %': f"{change:+.2f}%",
+                'RSI': f"{rsi:.1f}",
+                'Signal': signal
+            })
+        
+        progress.progress((i+1) / len(stocks))
     
-    # Smart signals
-    rsi = latest['RSI']
-    macd_status = "bull" if latest['MACD'] > latest['Signal'] else "bear"
+    # Live results table
+    df = pd.DataFrame(results)
+    st.subheader("📈 **LIVE MARKET SIGNALS**")
+    st.dataframe(df, use_container_width=True, height=400)
     
-    if rsi < 30 and macd_status == "bull":
-        signal = "🟢 BUY"
-    elif rsi > 70 or macd_status == "bear":
-        signal = "🔴 SELL" 
-    else:
-        signal = "🟡 HOLD"
+    # Live summary
+    buys = len(df[df['Signal'].str.contains('BUY')])
+    sells = len(df[df['Signal'].str.contains('SELL')])
     
-    return {
-        'Symbol': symbol.replace('.NS',''),
-        'Price': f"₹{price:.2f}",
-        'RSI': f"{rsi:.1f}",
-        'Signal': signal
-    }
+    col1, col2, col3 = st.columns(3)
+    col1.metric("🟢 STRONG BUY", buys)
+    col2.metric("🔴 SELL", sells)
+    col3.metric("🟡 HOLD", len(stocks) - buys - sells)
+    
+    st.markdown(f"---")
+    st.caption("⚠️ Educational tool only - not financial advice. Data from Yahoo Finance")
 
-# Analyze all stocks
-progress = st.progress(0)
-results = []
-
-for i, symbol in enumerate(stocks):
-    result = analyze_stock(symbol)
-    if result:
-        results.append(result)
-    progress.progress((i+1) / len(stocks))
-
-# Results table
-st.subheader("📊 Latest Analysis")
-df = pd.DataFrame(results)
-st.dataframe(df, use_container_width=True)
-
-# Summary
-buys = len(df[df['Signal'] == '🟢 BUY'])
-sells = len(df[df['Signal'] == '🔴 SELL'])
-holds = len(df[df['Signal'] == '🟡 HOLD'])
-
-col1, col2, col3 = st.columns(3)
-col1.metric("🟢 BUY", buys)
-col2.metric("🔴 SELL", sells) 
-col3.metric("🟡 HOLD", holds)
-
-st.info(f"**Market Summary**: {buys} BUY | {sells} SELL | {holds} HOLD signals")
-st.warning("⚠️ For education only - not financial advice!")
+# Auto-refresh countdown
+time.sleep(30)
+st.rerun()
