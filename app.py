@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 import ta
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime
 import time
 
 st.set_page_config(page_title="LIVE NIFTY 500", layout="wide", page_icon="📈")
@@ -14,30 +14,27 @@ LARGE_CAP = ['RELIANCE', 'HDFCBANK', 'TCS', 'INFY', 'ICICIBANK', 'KOTAKBANK', 'H
 MID_CAP = ['TRENT', 'BEL', 'VARUNBEV', 'PIDILITIND', 'DIXON', 'POLYCAB', 'LAURUSLABS', 'METROPOLIS', 'NAVINFLUOR']
 SMALL_CAP = ['CRAVATSYND', 'MPHASIS', 'MRF', 'MUTHOOTFIN', 'NH', 'PIIND', 'PRESTIGE']
 
-@st.cache_data(ttl=300)  # Cache 5 minutes
+@st.cache_data(ttl=300)
 def get_live_data(symbols, cap_type):
-    """Fetch REAL market data + calculate RSI"""
     results = []
     
     for symbol in symbols:
         try:
             ticker = yf.Ticker(symbol + '.NS')
-            hist = ticker.history(period="1mo", interval="1d")
+            hist = ticker.history(period="1mo")
             
             if len(hist) >= 20:
-                # REAL TECHNICAL INDICATORS
                 hist['RSI'] = ta.momentum.RSIIndicator(hist['Close'], window=14).rsi()
                 rsi = hist['RSI'].iloc[-1]
                 price = hist['Close'].iloc[-1]
                 ma20 = hist['Close'].rolling(20).mean().iloc[-1]
                 change = ((price / hist['Close'].iloc[-2] - 1) * 100) if len(hist) > 1 else 0
                 
-                # Cap-specific signals
                 if cap_type == 'large':
                     strong_rsi, buy_rsi, sell_rsi = 40, 45, 65
                 elif cap_type == 'mid':
                     strong_rsi, buy_rsi, sell_rsi = 35, 42, 68
-                else:  # small
+                else:
                     strong_rsi, buy_rsi, sell_rsi = 32, 38, 72
                 
                 signal = '🟢 STRONG BUY' if rsi < strong_rsi and price > ma20 else \
@@ -50,157 +47,110 @@ def get_live_data(symbols, cap_type):
                     'RSI': f"{rsi:.1f}",
                     'MA20': f"₹{ma20:.0f}",
                     'Change': f"{change:+.1f}%",
-                    'Signal': signal,
-                    'Time': datetime.now().strftime("%H:%M")
+                    'Signal': signal
                 })
-        except Exception as e:
+        except:
             continue
     
     return pd.DataFrame(results)
 
-# MAIN CONTROLS
+# CONTROLS
 col1, col2, col3 = st.columns(3)
-if col1.button("🔴 **LIVE SCAN LARGE CAP**", type="primary"):
-    with st.spinner("Fetching LIVE data..."):
+if col1.button("🔴 LIVE LARGE CAP", type="primary"):
+    with st.spinner("Fetching live data..."):
         st.session_state.live_large = get_live_data(LARGE_CAP, 'large')
     st.rerun()
 
-if col2.button("🔴 **LIVE SCAN MID CAP**"):
-    with st.spinner("Fetching LIVE data..."):
+if col2.button("🔴 LIVE MID CAP"):
+    with st.spinner("Fetching live data..."):
         st.session_state.live_mid = get_live_data(MID_CAP, 'mid')
     st.rerun()
 
-if col3.button("🔴 **LIVE SCAN SMALL CAP**"):
-    with st.spinner("Fetching LIVE data..."):
+if col3.button("🔴 LIVE SMALL CAP"):
+    with st.spinner("Fetching live data..."):
         st.session_state.live_small = get_live_data(SMALL_CAP, 'small')
     st.rerun()
 
-# PRIMARY CAP TABS - LIVE DATA
-tab1, tab2, tab3 = st.tabs(["🟢 **LARGE CAP** (REAL DATA)", "🟡 **MID CAP** (REAL DATA)", "🔴 **SMALL CAP** (REAL DATA)"])
+# PRIMARY TABS
+tab1, tab2, tab3 = st.tabs(["🟢 LARGE CAP", "🟡 MID CAP", "🔴 SMALL CAP"])
 
-# LARGE CAP TAB
+# LARGE CAP
 with tab1:
-    st.markdown("### 🏢 **LARGE CAP** - LIVE RSI DATA")
-    
     if 'live_large' in st.session_state and not st.session_state.live_large.empty:
-        col_main, col_signals = st.columns([3,1])
+        cols = st.columns(4)
+        data = st.session_state.live_large
         
-        with col_main:
-            signal_tabs = st.tabs(["🟢 STRONG BUY", "🟢 BUY", "🔴 SELL", "🟡 HOLD"])
-            
-            data = st.session_state.live_large
-            
-            with signal_tabs[0]:
-                strong_df = data[data['Signal'] == '🟢 STRONG BUY']
-                st.metric("🚀 LIVE STRONG BUY", len(strong_df))
-                st.dataframe(strong_df)
-            
-            with signal_tabs[1]:
-                buy_df = data[data['Signal'] == '🟢 BUY']
-                st.metric("🟢 LIVE BUY", len(buy_df))
-                st.dataframe(buy_df)
-            
-            with signal_tabs[2]:
-                sell_df = data[data['Signal'] == '🔴 SELL']
-                st.metric("🔴 LIVE SELL", len(sell_df))
-                st.dataframe(sell_df)
-            
-            with signal_tabs[3]:
-                hold_df = data[data['Signal'] == '🟡 HOLD']
-                st.metric("🟡 LIVE HOLD", len(hold_df))
-                st.dataframe(hold_df)
+        with cols[0]:
+            strong = data[data['Signal']=='🟢 STRONG BUY']
+            st.metric("STRONG BUY", len(strong))
+            st.dataframe(strong)
         
-        with col_signals:
-            st.download_button("💾 CSV", st.session_state.live_large.to_csv(index=False), "large-cap-live.csv")
-    else:
-        st.info("👆 Click **LIVE SCAN LARGE CAP** to fetch real data")
+        with cols[1]:
+            buy = data[data['Signal']=='🟢 BUY']
+            st.metric("BUY", len(buy))
+            st.dataframe(buy)
+        
+        with cols[2]:
+            sell = data[data['Signal']=='🔴 SELL']
+            st.metric("SELL", len(sell))
+            st.dataframe(sell)
+        
+        with cols[3]:
+            hold = data[data['Signal']=='🟡 HOLD']
+            st.metric("HOLD", len(hold))
+            st.dataframe(hold)
 
-# MID CAP TAB
+# MID CAP  
 with tab2:
-    st.markdown("### 📈 **MID CAP** - LIVE RSI DATA")
-    
     if 'live_mid' in st.session_state and not st.session_state.live_mid.empty:
-        col_main, col_signals = st.columns([3,1])
+        cols = st.columns(4)
+        data = st.session_state.live_mid
         
-        with col_main:
-            signal_tabs = st.tabs(["🟢 STRONG BUY", "🟢 BUY", "🔴 SELL", "🟡 HOLD"])
-            data = st.session_state.live_mid
-            
-            with signal_tabs[0]:
-                strong_df = data[data['Signal'] == '🟢 STRONG BUY']
-                st.metric("🚀 LIVE STRONG BUY", len(strong_df))
-                st.dataframe(strong_df)
-            
-            with signal_tabs[1]:
-                buy_df = data[data['Signal'] == '🟢 BUY']
-                st.metric("🟢 LIVE BUY", len(buy_df))
-                st.dataframe(buy_df)
-            
-            with signal_tabs[2]:
-                sell_df = data[data['Signal'] == '🔴 SELL']
-                st.metric("🔴 LIVE SELL", len(sell_df))
-                st.dataframe(sell_df)
-            
-            with signal_tabs[3]:
-                hold_df = data[data['Signal'] == '🟡 HOLD']
-                st.metric("🟡 LIVE HOLD", len(hold_df))
-                st.dataframe(hold_df)
+        with cols[0]:
+            strong = data[data['Signal']=='🟢 STRONG BUY']
+            st.metric("STRONG BUY", len(strong))
+            st.dataframe(strong)
         
-        with col_signals:
-            st.download_button("💾 CSV", st.session_state.live_mid.to_csv(index=False), "mid-cap-live.csv")
-    else:
-        st.info("👆 Click **LIVE SCAN MID CAP** to fetch real data")
+        with cols[1]:
+            buy = data[data['Signal']=='🟢 BUY']
+            st.metric("BUY", len(buy))
+            st.dataframe(buy)
+        
+        with cols[2]:
+            sell = data[data['Signal']=='🔴 SELL']
+            st.metric("SELL", len(sell))
+            st.dataframe(sell)
+        
+        with cols[3]:
+            hold = data[data['Signal']=='🟡 HOLD']
+            st.metric("HOLD", len(hold))
+            st.dataframe(hold)
 
-# SMALL CAP TAB
+# SMALL CAP
 with tab3:
-    st.markdown("### 🚀 **SMALL CAP** - LIVE RSI DATA")
-    
     if 'live_small' in st.session_state and not st.session_state.live_small.empty:
-        col_main, col_signals = st.columns([3,1])
+        cols = st.columns(4)
+        data = st.session_state.live_small
         
-        with col_main:
-            signal_tabs = st.tabs(["🟢 STRONG BUY", "🟢 BUY", "🔴 SELL", "🟡 HOLD"])
-            data = st.session_state.live_small
-            
-            with signal_tabs[0]:
-                strong_df = data[data['Signal'] == '🟢 STRONG BUY']
-                st.metric("🚀 LIVE STRONG BUY", len(strong_df))
-                st.dataframe(strong_df)
-            
-            with signal_tabs[1]:
-                buy_df = data[data['Signal'] == '🟢 BUY']
-                st.metric("🟢 LIVE BUY", len(buy_df))
-                st.dataframe(buy_df)
-            
-            with signal_tabs[2]:
-                sell_df = data[data['Signal'] == '🔴 SELL']
-                st.metric("🔴 LIVE SELL", len(sell_df))
-                st.dataframe(sell_df)
-            
-            with signal_tabs[3]:
-                hold_df = data[data['Signal'] == '🟡 HOLD']
-                st.metric("🟡 LIVE HOLD", len(hold_df))
-                st.dataframe(hold_df)
+        with cols[0]:
+            strong = data[data['Signal']=='🟢 STRONG BUY']
+            st.metric("STRONG BUY", len(strong))
+            st.dataframe(strong)
         
-        with col_signals:
-            st.download_button("💾 CSV", st.session_state.live_small.to_csv(index=False), "small-cap-live.csv")
-    else:
-        st.info("👆 Click **LIVE SCAN SMALL CAP** to fetch real data")
+        with cols[1]:
+            buy = data[data['Signal']=='🟢 BUY']
+            st.metric("BUY", len(buy))
+            st.dataframe(buy)
+        
+        with cols[2]:
+            sell = data[data['Signal']=='🔴 SELL']
+            st.metric("SELL", len(sell))
+            st.dataframe(sell)
+        
+        with cols[3]:
+            hold = data[data['Signal']=='🟡 HOLD']
+            st.metric("HOLD", len(hold))
+            st.dataframe(hold)
 
-# STATUS
 st.markdown("---")
-st.info("""
-**📊 LIVE DATA FEATURES**:
-✅ **REAL RSI** calculated from 30-day history
-✅ **REAL PRICES** from Yahoo Finance NSE
-✅ **MA20 crossover** confirmation for Strong Buy
-✅ **Cap-specific thresholds** (Large/Mid/Small)
-✅ **5-minute auto-cache** refresh
-✅ **CSV export** ready
-
-**⏰ BEST DURING MARKET HOURS**: 9:15 AM - 3:30 PM IST
-**🌙 After hours**: Shows last close + historical RSI
-
-**INSTALL**:
-```bash
-pip install streamlit yfinance pandas ta numpy
+st.success("REAL RSI data from Yahoo Finance. 5-min auto refresh. Market hours 9:15AM-3:30PM IST best.")
