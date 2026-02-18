@@ -13,7 +13,7 @@ if 'auto_active' not in st.session_state: st.session_state.auto_active = True
 if 'batch_progress' not in st.session_state: st.session_state.batch_progress = 0
 
 st.set_page_config(page_title="NIFTY 500 LIVE", layout="wide", page_icon="🚀")
-st.title("🔥 TRUE NIFTY 500 SCANNER ")
+st.title("NIFTY 500 SCANNER ")
 
 # 🔥 TRUE NIFTY 500 - OFFICIAL NSE LIST
 @st.cache_data(ttl=86400)
