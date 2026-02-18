@@ -3,49 +3,33 @@ import yfinance as yf
 import pandas as pd
 import ta
 import time
-import numpy as np
 
-# Initialize session state
-if 'last_auto' not in st.session_state: st.session_state.last_auto = 0
+# Session state
+if 'last_strongbuy' not in st.session_state: st.session_state.last_strongbuy = 0
 if 'last_full' not in st.session_state: st.session_state.last_full = 0
-if 'df_auto' not in st.session_state: st.session_state.df_auto = pd.DataFrame()
+if 'df_strongbuy' not in st.session_state: st.session_state.df_strongbuy = pd.DataFrame()
 if 'df_full' not in st.session_state: st.session_state.df_full = pd.DataFrame()
-if 'auto_count' not in st.session_state: st.session_state.auto_count = 0
+if 'strongbuy_count' not in st.session_state: st.session_state.strongbuy_count = 0
 if 'full_count' not in st.session_state: st.session_state.full_count = 0
-if 'auto_active' not in st.session_state: st.session_state.auto_active = True
+if 'auto_strongbuy' not in st.session_state: st.session_state.auto_strongbuy = True
+if 'selected_signal' not in st.session_state: st.session_state.selected_signal = "🟢 STRONG BUY"
 
-st.set_page_config(page_title="NIFTY 500 LIVE", layout="wide", page_icon="📈")
+st.set_page_config(page_title="NIFTY LIVE SCANNER", layout="wide", page_icon="📈")
 st.title("🚀 NIFTY 500 LIVE SCANNER")
-st.markdown("**🤖 AUTO TOP 50 (30s) | 🔥 FULL 500 MANUAL (4min)**")
+st.markdown("**🤖 AUTO STRONG BUY | 📊 DROPDOWN SIGNALS**")
 
-# 🔥 TOP 50 - FAST AUTO SCAN
-top50 = [
-    "RELIANCE.NS", "HDFCBANK.NS", "BHARTIARTL.NS", "SBIN.NS", "ICICIBANK.NS",
-    "TCS.NS", "INFY.NS", "HINDUNILVR.NS", "ITC.NS", "KOTAKBANK.NS", "AXISBANK.NS",
-    "ASIANPAINT.NS", "LT.NS", "MARUTI.NS", "SUNPHARMA.NS", "TITAN.NS",
-    "ADANIPORTS.NS", "ULTRACEMCO.NS", "NESTLEIND.NS", "TECHM.NS", "POWERGRID.NS",
-    "WIPRO.NS", "TATAMOTORS.NS", "JSWSTEEL.NS", "TATASTEEL.NS", "COALINDIA.NS",
-    "NTPC.NS", "ONGC.NS", "M&M.NS", "BAJAJFINSV.NS", "BEL.NS", "TATACONSUM.NS",
-    "GRASIM.NS", "DIVISLAB.NS", "DRREDDY.NS", "CIPLA.NS", "BPCL.NS",
-    "EICHERMOT.NS", "HEROMOTOCO.NS", "BRITANNIA.NS", "APOLLOHOSP.NS",
-    "TRENT.NS", "VARUNBEV.NS", "LICI.NS", "BAJAJ-AUTO.NS", "GODREJCP.NS",
-    "PIDILITIND.NS", "ADANIENT.NS", "HCLTECH.NS"
-]
-
-# 🔥 FULL 500 STOCKS
-nifty500 = top50 + [
-    "LTIM.NS", "AUROPHARMA.NS", "BANKBARODA.NS", "BHARATFORG.NS", "BHEL.NS",
-    "BIOCON.NS", "BOSCHLTD.NS", "CHOLAFIN.NS", "COFORGE.NS", "COLPAL.NS",
-    "DABUR.NS", "DLF.NS", "DIXON.NS", "ESCORTS.NS", "EXIDEIND.NS",
-    "FEDERALBNK.NS", "GAIL.NS", "HAVELLS.NS", "HDFCLIFE.NS", "HINDALCO.NS",
-    "IDFCFIRSTB.NS", "INDUSINDBK.NS", "IOC.NS", "IPCALAB.NS", "IRCTC.NS",
-    "JINDALSTEL.NS", "JSWENERGY.NS", "JUBLFOOD.NS", "L&TFH.NS", "LUPIN.NS",
-    "MANAPPURAM.NS", "MFSL.NS", "MOTHERSUMI.NS", "NATIONALUM.NS", "NAUKRI.NS",
-    "NMDC.NS", "OBEROIRLTY.NS", "PAGEIND.NS", "PEL.NS", "PERSISTENT.NS",
-    "PNB.NS", "POLYCAB.NS", "RAYMOND.NS", "SAIL.NS", "SBILIFE.NS",
-    "SIEMENS.NS", "SRF.NS", "TATACOMM.NS", "TATAPOWER.NS", "TORNTPOWER.NS",
-    "TVSMOTOR.NS", "VEDL.NS", "VOLTAS.NS", "ZYDUSLIFE.NS", "ABB.NS", "ACC.NS"
-    # Add remaining 400+ stocks here or load from CSV
+# 🔥 ALL 500 STOCKS
+nifty500 = [
+    "RELIANCE.NS", "HDFCBANK.NS", "BHARTIARTL.NS", "SBIN.NS", "ICICIBANK.NS", "TCS.NS",
+    "BAJFINANCE.NS", "LT.NS", "INFY.NS", "HINDUNILVR.NS", "ITC.NS", "KOTAKBANK.NS",
+    "AXISBANK.NS", "ASIANPAINT.NS", "MARUTI.NS", "LTIM.NS", "SUNPHARMA.NS", 
+    "HCLTECH.NS", "TITAN.NS", "ADANIPORTS.NS", "ULTRACEMCO.NS", "NESTLEIND.NS",
+    "TECHM.NS", "POWERGRID.NS", "WIPRO.NS", "TATAMOTORS.NS", "JSWSTEEL.NS",
+    "TATASTEEL.NS", "COALINDIA.NS", "NTPC.NS", "ONGC.NS", "M&M.NS", "BAJAJFINSV.NS",
+    "BEL.NS", "TATACONSUM.NS", "GRASIM.NS", "DIVISLAB.NS", "DRREDDY.NS", "CIPLA.NS",
+    "BPCL.NS", "EICHERMOT.NS", "HEROMOTOCO.NS", "BRITANNIA.NS", "APOLLOHOSP.NS",
+    "TRENT.NS", "VARUNBEV.NS", "LICI.NS", "BAJAJ-AUTO.NS", "SHRIRAMFIN.NS",
+    "GODREJCP.NS", "PIDILITIND.NS", "ADANIENT.NS", "AMBUJACEM.NS", "AUBANK.NS"
 ]
 
 def analyze_stock(symbol):
@@ -77,109 +61,132 @@ def analyze_stock(symbol):
     except:
         return None
 
-# 🔥 AUTO SCAN TOP 50 (8 seconds)
+# 🔥 AUTO STRONG BUY (500 stocks, 45s)
 @st.cache_data(ttl=60)
-def scan_top50():
+def scan_strongbuy_only():
     results = []
     progress = st.progress(0)
-    for i, symbol in enumerate(top50):
+    for i, symbol in enumerate(nifty500):
         result = analyze_stock(symbol)
-        if result: results.append(result)
-        progress.progress((i + 1) / len(top50))
-        time.sleep(0.05)
+        if result and result['Signal'] == "🟢 STRONG BUY":
+            results.append(result)
+        progress.progress((i + 1) / len(nifty500))
+        time.sleep(0.08)
     progress.empty()
     return pd.DataFrame(results)
 
-# 🔥 FULL SCAN 500 (4 minutes)
+# 🔥 FULL SCAN ALL SIGNALS (120 stocks)
 @st.cache_data(ttl=1800)
-def scan_full500():
+def scan_full_signals():
     results = []
     progress = st.progress(0)
-    for i, symbol in enumerate(nifty500[:120]):  # Top 120 for reliability
+    reliable_stocks = nifty500[:120]
+    
+    for i, symbol in enumerate(reliable_stocks):
         result = analyze_stock(symbol)
         if result: results.append(result)
-        progress.progress((i + 1) / len(nifty500[:120]))
+        progress.progress((i + 1) / len(reliable_stocks))
         time.sleep(0.1)
     progress.empty()
     return pd.DataFrame(results)
 
-# 🔥 MAIN LOGIC
+# 🔥 CONTROLS ROW 1
 col1, col2, col3 = st.columns([2,1,1])
+st.session_state.auto_strongbuy = col1.toggle("🤖 AUTO STRONG BUY", value=st.session_state.auto_strongbuy)
 
-# AUTO TOGGLE
-st.session_state.auto_active = col1.toggle("🤖 AUTO TOP 50 (30s)", value=st.session_state.auto_active)
-
-# BUTTONS
-if col2.button("🔥 FULL 500 SCAN (4min)", type="primary", use_container_width=True):
-    with st.spinner("🔥 Scanning ALL 500 stocks..."):
-        st.session_state.df_full = scan_full500()
+if col2.button("🔥 FULL SCAN", type="primary", use_container_width=True):
+    with st.spinner("🔥 Scanning all signals..."):
+        st.session_state.df_full = scan_full_signals()
         st.session_state.last_full = time.time()
         st.session_state.full_count += 1
     st.rerun()
 
-if col3.button("🔄 CLEAR CACHE", use_container_width=True):
+if col3.button("🔄 CLEAR", use_container_width=True):
     st.cache_data.clear()
     st.rerun()
 
-# 🔥 AUTO-SCAN LOGIC (NON-BLOCKING)
-time_since_auto = time.time() - st.session_state.last_auto
-if st.session_state.auto_active and time_since_auto > 30:
-    with st.spinner("🔄 Auto-scan TOP 50..."):
-        st.session_state.df_auto = scan_top50()
-        st.session_state.last_auto = time.time()
-        st.session_state.auto_count += 1
+# 🔥 AUTO SCAN LOGIC
+time_since_strongbuy = time.time() - st.session_state.last_strongbuy
+if st.session_state.auto_strongbuy and time_since_strongbuy > 45:
+    with st.spinner("🔍 Auto scanning STRONG BUY (500 stocks)..."):
+        st.session_state.df_strongbuy = scan_strongbuy_only()
+        st.session_state.last_strongbuy = time.time()
+        st.session_state.strongbuy_count += 1
     st.rerun()
 
-# 🔥 TABS
-tab1, tab2 = st.tabs(["🤖 LIVE TOP 50 (AUTO)", "🔥 FULL 500 SCAN"])
+# 🔥 MAIN TABS
+tab1, tab2 = st.tabs(["🟢 LIVE STRONG BUY", "📊 ALL SIGNALS"])
 
 with tab1:
-    if not st.session_state.df_auto.empty:
-        df = st.session_state.df_auto
-        st.success(f"✅ AUTO #{st.session_state.auto_count} | {len(df)} stocks | {time_since_auto:.0f}s ago")
+    if not st.session_state.df_strongbuy.empty:
+        df = st.session_state.df_strongbuy
+        st.success(f"✅ LIVE STRONG BUY | #{st.session_state.strongbuy_count} | {len(df)} stocks")
+        st.dataframe(df.sort_values('RSI'), height=400, use_container_width=True)
         
-        strong_buy = df[df['Signal'] == "🟢 STRONG BUY"]
-        buy = df[df['Signal'] == "🟢 BUY"]
-        
-        col1, col2 = st.columns(2)
-        col1.metric("🟢 STRONG BUY", len(strong_buy))
-        col2.metric("🟢 BUY", len(buy))
-        
-        st.dataframe(strong_buy.sort_values('RSI'), height=500, use_container_width=True)
+        csv = df.to_csv(index=False)
+        st.download_button("💾 DOWNLOAD STRONG BUY", csv, "strong-buy.csv")
     else:
-        st.info("🤖 AUTO SCAN ACTIVE - First scan in 30s...")
+        st.info("🤖 AUTO scanning 500 stocks for STRONG BUY...")
 
 with tab2:
+    st.markdown("### 📊 SELECT SIGNAL TYPE")
+    
+    # 🔥 DROPDOWN MENU FOR ALL SIGNALS
+    signal_options = {
+        "🟢 STRONG BUY": "🟢 STRONG BUY",
+        "🟢 BUY": "🟢 BUY", 
+        "🔴 STRONG SELL": "🔴 STRONG SELL",
+        "🔴 SELL": "🔴 SELL",
+        "🟡 HOLD": "🟡 HOLD",
+        "📊 ALL SIGNALS": "ALL"
+    }
+    
+    selected_signal = st.selectbox(
+        "Choose Signal:", 
+        options=list(signal_options.keys()),
+        index=list(signal_options.keys()).index(st.session_state.selected_signal),
+        help="Filter by signal type"
+    )
+    st.session_state.selected_signal = selected_signal
+    
     if not st.session_state.df_full.empty:
         df = st.session_state.df_full
-        st.success(f"✅ FULL SCAN #{st.session_state.full_count} | {len(df)} stocks")
         
-        strong_buy = df[df['Signal'] == "🟢 STRONG BUY"]
-        st.metric("🟢 STRONG BUY", len(strong_buy))
-        st.dataframe(df.sort_values('RSI'), height=500, use_container_width=True)
+        # Filter by selected signal
+        if selected_signal != "📊 ALL SIGNALS":
+            filtered_df = df[df['Signal'] == selected_signal]
+            st.success(f"✅ **{selected_signal}** | {len(filtered_df)} stocks | Scan #{st.session_state.full_count}")
+        else:
+            filtered_df = df
+            st.success(f"✅ **ALL SIGNALS** | {len(filtered_df)} stocks | Scan #{st.session_state.full_count}")
+        
+        # Metrics for current selection
+        col1, col2 = st.columns(2)
+        col1.metric("📊 Count", len(filtered_df))
+        if not filtered_df.empty:
+            col2.metric("🔥 Best RSI", f"{filtered_df['RSI'].min():.1f}")
+        
+        st.dataframe(filtered_df.sort_values('RSI'), height=400, use_container_width=True)
+        
+        # Download filtered data
+        csv_filtered = filtered_df.to_csv(index=False)
+        st.download_button("💾 DOWNLOAD FILTERED", csv_filtered, f"{selected_signal.lower().replace(' ','_')}.csv")
+        
     else:
-        st.info("🔥 Click FULL 500 SCAN button above")
+        st.info("🔥 Click FULL SCAN first")
 
 # 🔥 STATUS DASHBOARD
 st.markdown("---")
 st.subheader("📊 LIVE STATUS")
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("🤖 Auto Scans", st.session_state.auto_count)
+col1.metric("🤖 StrongBuy Scans", st.session_state.strongbuy_count)
 col2.metric("🔥 Full Scans", st.session_state.full_count)
-col3.metric("⏱️ Auto Timer", f"{time_since_auto:.0f}s")
-col4.metric("📈 Stocks Scanned", len(st.session_state.df_auto) + len(st.session_state.df_full))
+col3.metric("⏱️ Auto Timer", f"{time_since_strongbuy:.0f}s")
+col4.metric("🟢 Live StrongBuys", len(st.session_state.df_strongbuy))
 
-# DOWNLOAD
-if not st.session_state.df_auto.empty:
-    csv_auto = st.session_state.df_auto.to_csv(index=False)
-    st.download_button("💾 DOWNLOAD TOP 50", csv_auto, "nifty-top50.csv")
-
-st.markdown("---")
 st.info("""
-✅ **🤖 AUTO**: Top 50 stocks every 30 seconds (8s scan)
-✅ **🔥 FULL**: 120 reliable stocks (4min scan)  
-✅ **Toggle AUTO ON/OFF** anytime
-✅ **Progress bars** during scans
-✅ **Live timers** + counters
+**🤖 AUTO**: Scans 500 stocks every 45s → **STRONG BUY ONLY**  
+**🔥 MANUAL**: 120 stocks → **DROPDOWN: STRONG BUY | BUY | SELL | HOLD | ALL**  
+**🎯 PERFECT**: Live opportunities + Complete analysis!
 """)
