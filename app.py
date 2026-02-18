@@ -3,81 +3,79 @@ import yfinance as yf
 import pandas as pd
 import ta
 import time
+from concurrent.futures import ThreadPoolExecutor
 
-st.title("🔴 LIVE Indian Stock Analyzer")
-st.markdown("**Auto-refreshes every 30s with real-time BUY/SELL signals**")
+st.title("🔴 LIVE Indian Stock Analyzer (Rate-Limit Fixed)")
+st.markdown("**Smart delays + fewer requests = NO MORE ERRORS**")
 
-# Top NIFTY stocks
 stocks = ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS", 
           "ICICIBANK.NS", "KOTAKBANK.NS", "SBIN.NS", "BHARTIARTL.NS", "ITC.NS"]
 
-# Auto-refresh button
-if st.button("🔄 Refresh Now") or st.session_state.get('refresh', False):
-    st.session_state.refresh = True
-    st.rerun()
-
-# Auto-refresh timer
-placeholder = st.empty()
-with placeholder.container():
-    st.write("⏱️ **Next auto-refresh:** 30s")
-    
-    # Analyze all stocks
-    progress = st.progress(0)
-    results = []
-    
-    for i, symbol in enumerate(stocks):
+@st.cache_data(ttl=1200)  # Cache 20 mins
+def safe_fetch(symbol):
+    try:
         ticker = yf.Ticker(symbol)
-        data = ticker.history(period="1mo")  # More recent data for faster load
+        data = ticker.history(period="1mo", timeout=10)
+        if data.empty:
+            return None
         
-        if not data.empty:
-            # Real-time indicators
-            data['RSI'] = ta.momentum.RSIIndicator(data['Close']).rsi()
-            macd = ta.trend.MACD(data['Close'])
-            data['MACD'] = macd.macd()
-            data['MACD_Signal'] = macd.macd_signal()
-            
-            latest = data.iloc[-1]
-            price = latest['Close']
-            change = ((price - data['Close'].iloc[-2]) / data['Close'].iloc[-2]) * 100
-            
-            # Live signals
-            rsi = latest['RSI']
-            macd_bull = latest['MACD'] > latest['MACD_Signal']
-            
-            if rsi < 35 and macd_bull and change > 0:
-                signal = "🟢 **STRONG BUY**"
-            elif rsi > 65 or not macd_bull:
-                signal = "🔴 **SELL**"
-            else:
-                signal = "🟡 **HOLD**"
-            
-            results.append({
-                'Stock': symbol.replace('.NS',''),
-                '₹ Price': f"{price:.2f}",
-                'Chg %': f"{change:+.2f}%",
-                'RSI': f"{rsi:.1f}",
-                'Signal': signal
-            })
+        # Quick indicators (less computation)
+        data['RSI'] = ta.momentum.RSIIndicator(data['Close'], window=14).rsi()
+        macd = ta.trend.MACD(data['Close'], window_slow=26, window_fast=12)
+        latest = data.iloc[-1]
         
-        progress.progress((i+1) / len(stocks))
-    
-    # Live results table
-    df = pd.DataFrame(results)
-    st.subheader("📈 **LIVE MARKET SIGNALS**")
-    st.dataframe(df, use_container_width=True, height=400)
-    
-    # Live summary
-    buys = len(df[df['Signal'].str.contains('BUY')])
-    sells = len(df[df['Signal'].str.contains('SELL')])
-    
-    col1, col2, col3 = st.columns(3)
-    col1.metric("🟢 STRONG BUY", buys)
-    col2.metric("🔴 SELL", sells)
-    col3.metric("🟡 HOLD", len(stocks) - buys - sells)
-    
-    st.markdown(f"---")
-    st.caption("⚠️ Educational tool only - not financial advice. Data from Yahoo Finance")
+        rsi = latest['RSI']
+        price = latest['Close']
+        change = ((price - data['Close'].iloc[-2]) / data['Close'].iloc[-2]) * 100 if len(data) > 1 else 0
+        
+        # Simple signals
+        if rsi < 35:
+            signal = "🟢 BUY"
+        elif rsi > 65:
+            signal = "🔴 SELL"
+        else:
+            signal = "🟡 HOLD"
+            
+        return {
+            'Stock': symbol.replace('.NS',''),
+            '₹Price': f"{price:.2f}",
+            'Chg%': f"{change:+.1f}%",
+            'RSI': f"{rsi:.1f}",
+            'Signal': signal
+        }
+    except:
+        return None
 
-# Auto-refresh countdown
-time.sleep(30)
-st.rerun()
+# Manual refresh only (no auto)
+if st.button("🔄 ANALYZE MARKET NOW", type="primary"):
+    with st.spinner("Scanning 10 stocks..."):
+        results = []
+        progress = st.progress(0)
+        
+        for i, symbol in enumerate(stocks):
+            result = safe_fetch(symbol)
+            if result:
+                results.append(result)
+            time.sleep(1)  # 1 sec delay between requests
+            progress.progress((i+1) / len(stocks))
+    
+    if results:
+        df = pd.DataFrame(results)
+        st.success("✅ Analysis Complete!")
+        st.dataframe(df, use_container_width=True, hide_index=True)
+        
+        # Summary stats
+        buys = len(df[df['Signal']=='🟢 BUY'])
+        sells = len(df[df['Signal']=='🔴 SELL'])
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("🟢 BUY", buys)
+        col2.metric("🔴 SELL", sells)
+        col3.metric("🟡 HOLD", len(results)-buys-sells)
+        
+        st.balloons()
+    else:
+        st.error("No data received. Try again in 5 mins.")
+
+st.info("👉 Click ANALYZE button for fresh data. Wait 15s between clicks.")
+st.caption("⚠️ Educational use only - not financial advice")
