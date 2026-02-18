@@ -4,7 +4,7 @@ import pandas as pd
 import ta
 import time
 
-# Initialize session state for timer
+# Initialize session state
 if 'last_scan' not in st.session_state:
     st.session_state.last_scan = 0
 if 'scan_count' not in st.session_state:
@@ -12,9 +12,9 @@ if 'scan_count' not in st.session_state:
 
 st.set_page_config(page_title="NIFTY 50 LIVE", layout="wide", page_icon="📈")
 st.title("🚀 NIFTY 50 RSI + MA SCANNER")
-st.markdown("**Dual confirmation | Auto-refresh every 5 mins + Manual option**")
+st.markdown("**ALL 4 signals: Strong Buy | Buy | Sell | Hold | Auto + Manual refresh**")
 
-# OFFICIAL NIFTY 50
+# NIFTY 50 stocks
 nifty50 = [
     "RELIANCE.NS", "HDFCBANK.NS", "BHARTIARTL.NS", "SBIN.NS", "ICICIBANK.NS", "TCS.NS",
     "BAJFINANCE.NS", "LT.NS", "INFY.NS", "LICI.NS", "HINDUNILVR.NS", "MARUTI.NS",
@@ -71,88 +71,80 @@ def scan_nifty50():
     
     return pd.DataFrame(results), failed
 
-# 🔥 MAIN SCANNER WITH MANUAL + AUTO
+# 🔥 CONTROL BUTTONS
 col1, col2 = st.columns([3,1])
-
 with col1:
-    if st.button("🔥 MANUAL SCAN NOW", type="primary", use_container_width=True, key="manual"):
+    if st.button("🔥 MANUAL SCAN NOW", type="primary", use_container_width=True):
         st.session_state.last_scan = time.time()
         st.session_state.scan_count += 1
         st.rerun()
-
 with col2:
-    if st.button("🔄 FORCE REFRESH", use_container_width=True, key="force"):
+    if st.button("🔄 CLEAR CACHE", use_container_width=True):
         st.cache_data.clear()
-        st.session_state.last_scan = time.time()
         st.rerun()
 
-# AUTO-REFRESH EXECUTION
+# AUTO-REFRESH LOGIC
 time_since_scan = time.time() - st.session_state.last_scan
-if time_since_scan > 300 or st.session_state.scan_count == 0:  # 5 mins or first load
+if time_since_scan > 300 or st.session_state.scan_count == 0:
     df, failed = scan_nifty50()
-    st.session_state.last_scan = time.time()
     st.session_state.df = df
     st.session_state.failed = failed
+    st.session_state.last_scan = time.time()
+    st.session_state.scan_count += 1
 
-# DISPLAY RESULTS
+# ✅ DISPLAY ALL 4 CATEGORIES
 try:
     df = st.session_state.df
     failed = st.session_state.failed
     
-    st.success(f"✅ **{len(df)}/{50-failed} SUCCESS** | Scan #{st.session_state.scan_count}")
+    st.success(f"✅ **SUCCESS**: {len(df)}/50 stocks | Scan #{st.session_state.scan_count}")
     
-    # 3 CHARTS - ALL STOCKS
+    # 4 CHARTS - ALL SIGNALS
     strong_buy = df[df['Signal'] == "🟢 STRONG BUY"]
-    all_buy = df[df['Signal'] == "🟢 BUY"]
     all_sell = df[df['Signal'].str.contains('SELL')]
+    all_buy = df[df['Signal'] == "🟢 BUY"]
+    all_hold = df[df['Signal'] == "🟡 HOLD"]
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.markdown("### 🟢 **STRONG BUY**")
         st.metric("Count", len(strong_buy))
         if not strong_buy.empty:
-            st.dataframe(strong_buy[['Stock','Price','RSI','MA20']], height=350)
+            st.dataframe(strong_buy[['Stock','Price','RSI']], height=300, use_container_width=True)
     
     with col2:
-        st.markdown("### 🔴 **ALL SELLS**")
+        st.markdown("### 🔴 **SELL**")
         st.metric("Count", len(all_sell))
         if not all_sell.empty:
-            st.dataframe(all_sell[['Stock','Price','RSI','MA20']], height=350)
+            st.dataframe(all_sell[['Stock','Price','RSI']], height=300, use_container_width=True)
     
     with col3:
-        st.markdown("### 🟢 **ALL BUYS**")
+        st.markdown("### 🟢 **BUY**")
         st.metric("Count", len(all_buy))
         if not all_buy.empty:
-            st.dataframe(all_buy[['Stock','Price','RSI','MA20']], height=350)
+            st.dataframe(all_buy[['Stock','Price','RSI']], height=300, use_container_width=True)
     
-    # SUMMARY
+    with col4:
+        st.markdown("### 🟡 **HOLD**")
+        st.metric("Count", len(all_hold))
+        if not all_hold.empty:
+            st.dataframe(all_hold[['Stock','Price','RSI']].head(15), height=300, use_container_width=True)
+    
+    # SUMMARY ROW
     col1, col2, col3 = st.columns(3)
     col1.metric("🎯 TOTAL", len(df))
-    col2.metric("🟢 STRONGEST", len(strong_buy))
+    col2.metric("🟢 STRONG BUY", len(strong_buy))
     col3.metric("🔴 SELLS", len(all_sell))
     
+    # DOWNLOAD
     csv = df.to_csv(index=False)
-    st.download_button("💾 DOWNLOAD", csv, "nifty50-scan.csv", use_container_width=True)
+    st.download_button("💾 DOWNLOAD ALL", csv, "nifty50-complete.csv", use_container_width=True)
     
 except:
-    st.info("👈 Click **MANUAL SCAN NOW** or wait 5 mins for auto-scan")
+    st.info("👈 Click **MANUAL SCAN NOW** or wait for auto-scan")
 
-# 🕒 WORKING AUTO-REFRESH TIMER
+# 🕒 AUTO-REFRESH TIMER
 st.markdown("---")
-st.subheader("⏱️ AUTO-REFRESH STATUS")
-time_since = time.time() - st.session_state.last_scan
-remaining = max(0, 300 - time_since)
-m, s = divmod(int(remaining), 60)
-st.metric("⏳ Next Auto-Scan", f"{m}m {s}s", delta=f"-{int(time_since/60)}m")
-
-col1, col2 = st.columns(2)
-col1.metric("🔄 Total Scans", st.session_state.scan_count)
-col2.metric("⏱️ Time Since Last", f"{int(time_since/60)}m {int(time_since%60)}s")
-
-st.info("""
-**🟢 STRONG BUY** = RSI<35 + Price>MA20
-**5 min auto-refresh** = Rate-limit safe
-**Click MANUAL SCAN** anytime
-**Educational only**
-""")
+st.subheader("⏱️ REFRESH STATUS")
+time_since = time.time() - st.ses
