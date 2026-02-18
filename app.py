@@ -15,6 +15,8 @@ if 'failed' not in st.session_state:
     st.session_state.failed = 0
 if 'total' not in st.session_state:
     st.session_state.total = 0
+if 'refresh_trigger' not in st.session_state:
+    st.session_state.refresh_trigger = 0
 
 st.set_page_config(page_title="NIFTY 500 LIVE", layout="wide", page_icon="📈")
 st.title("🚀 NIFTY 500 RSI + MA SCANNER")
@@ -30,19 +32,7 @@ nifty500 = [
     "TATASTEEL.NS", "COALINDIA.NS", "NTPC.NS", "ONGC.NS", "M&M.NS", "BAJAJFINSV.NS",
     "BEL.NS", "TATACONSUM.NS", "GRASIM.NS", "DIVISLAB.NS", "DRREDDY.NS", "CIPLA.NS",
     "BPCL.NS", "EICHERMOT.NS", "HEROMOTOCO.NS", "BRITANNIA.NS", "APOLLOHOSP.NS",
-    "TRENT.NS", "VARUNBEV.NS", "LICI.NS", "BAJAJ-AUTO.NS", "SHRIRAMFIN.NS",
-    "GODREJCP.NS", "PIDILITIND.NS", "ADANIENT.NS", "AMBUJACEM.NS", "AUBANK.NS",
-    "AUROPHARMA.NS", "BANKBARODA.NS", "BHARATFORG.NS", "BHEL.NS", "BIOCON.NS",
-    "BOSCHLTD.NS", "CHOLAFIN.NS", "COFORGE.NS", "COLPAL.NS", "DABUR.NS",
-    "DLF.NS", "DIXON.NS", "ESCORTS.NS", "EXIDEIND.NS", "FEDERALBNK.NS",
-    "GAIL.NS", "HAVELLS.NS", "HDFCLIFE.NS", "HINDALCO.NS", "IDFCFIRSTB.NS",
-    "INDUSINDBK.NS", "IOC.NS", "IPCALAB.NS", "IRCTC.NS", "JINDALSTEL.NS",
-    "JSWENERGY.NS", "JUBLFOOD.NS", "L&TFH.NS", "LUPIN.NS", "MANAPPURAM.NS",
-    "MFSL.NS", "MOTHERSUMI.NS", "NATIONALUM.NS", "NAUKRI.NS", "NMDC.NS",
-    "OBEROIRLTY.NS", "PAGEIND.NS", "PEL.NS", "PERSISTENT.NS", "PNB.NS",
-    "POLYCAB.NS", "RAYMOND.NS", "SAIL.NS", "SBILIFE.NS", "SIEMENS.NS",
-    "SRF.NS", "TATACOMM.NS", "TATAPOWER.NS", "TORNTPOWER.NS", "TVSMOTOR.NS",
-    "VEDL.NS", "VOLTAS.NS", "ZYDUSLIFE.NS"
+    "TRENT.NS", "VARUNBEV.NS", "LICI.NS", "BAJAJ-AUTO.NS", "SHRIRAMFIN.NS"
 ]
 
 @st.cache_data(ttl=300)
@@ -79,8 +69,8 @@ def scan_nifty500():
             results.append({
                 'Stock': symbol.replace('.NS',''),
                 'Price': f"₹{price:.1f}",
-                'RSI': float(rsi),      # Store as FLOAT - FIXED
-                'MA20': float(ma20),     # Store as FLOAT - FIXED
+                'RSI': float(rsi),
+                'MA20': float(ma20),
                 'Signal': signal
             })
             time.sleep(0.2)
@@ -89,10 +79,10 @@ def scan_nifty500():
     
     return pd.DataFrame(results), failed, len(nifty500)
 
-# CONTROL BUTTONS - FIXED
-col1, col2, col3 = st.columns([3, 1, 1])
+# 🔥 CONTROL BUTTONS WITH REFRESH TRIGGER
+col1, col2, col3, col4 = st.columns([2.5, 1, 1, 1])
 with col1:
-    if st.button("🔥 MANUAL SCAN NOW", type="primary", use_container_width=True, key="scan_now"):
+    if st.button("🔥 MANUAL SCAN NOW", type="primary", use_container_width=True, key="scan_main"):
         with st.spinner("Scanning NIFTY 500..."):
             df, failed, total = scan_nifty500()
             st.session_state.df = df
@@ -100,17 +90,23 @@ with col1:
             st.session_state.total = total
             st.session_state.last_scan = time.time()
             st.session_state.scan_count += 1
-        st.success("✅ Scan complete!")
+        st.session_state.refresh_trigger += 1
         st.rerun()
 
 with col2:
-    if st.button("🔄 REFRESH DATA", use_container_width=True, key="refresh"):
+    if st.button("🔄 REFRESH DATA", use_container_width=True, key="refresh_data"):
         st.cache_data.clear()
+        st.session_state.refresh_trigger += 1
         st.rerun()
 
 with col3:
-    if st.button("⏹️ STOP AUTO", use_container_width=True, key="stop"):
+    if st.button("⏹️ PAUSE AUTO", use_container_width=True, key="pause_auto"):
         st.session_state.last_scan = time.time() + 10000
+
+with col4:
+    if st.button("🔄 TICK NOW", use_container_width=True, key="tick_now"):
+        st.session_state.refresh_trigger += 1
+        st.rerun()
 
 # AUTO-REFRESH
 time_since_scan = time.time() - st.session_state.last_scan
@@ -123,7 +119,7 @@ if time_since_scan > 300 or st.session_state.scan_count == 0:
         st.session_state.last_scan = time.time()
         st.session_state.scan_count += 1
 
-# 4 TABS DISPLAY - ALL ERRORS FIXED
+# 🔥 4 TABS DISPLAY
 if not st.session_state.df.empty:
     df = st.session_state.df
     failed = st.session_state.failed
@@ -131,13 +127,11 @@ if not st.session_state.df.empty:
     
     st.success(f"✅ SUCCESS: {len(df)}/{total-failed} stocks | Scan #{st.session_state.scan_count}")
     
-    # Filter data for tabs
     strong_buy = df[df['Signal'] == "🟢 STRONG BUY"].copy()
     all_sell = df[df['Signal'].str.contains('SELL', na=False)].copy()
     all_buy = df[df['Signal'] == "🟢 BUY"].copy()
     all_hold = df[df['Signal'] == "🟡 HOLD"].copy()
     
-    # CREATE 4 TABS
     tab1, tab2, tab3, tab4 = st.tabs(["🟢 STRONG BUY", "🔴 SELL", "🟢 BUY", "🟡 HOLD"])
     
     with tab1:
@@ -146,19 +140,15 @@ if not st.session_state.df.empty:
         col1.metric("Count", len(strong_buy))
         col2.metric("Lowest RSI", round(strong_buy['RSI'].min(), 1) if not strong_buy.empty else 0)
         if not strong_buy.empty:
-            st.dataframe(strong_buy[['Stock','Price','RSI','MA20']], height=400, use_container_width=True)
-        else:
-            st.info("🎉 No STRONG BUY signals!")
+            st.dataframe(strong_buy[['Stock','Price','RSI','MA20']].sort_values('RSI'), height=400, use_container_width=True)
     
     with tab2:
-        st.markdown("### 🔴 **SELL SIGNALS** (RSI>65/70)")
+        st.markdown("### 🔴 **SELL** (RSI>65/70)")
         col1, col2 = st.columns(2)
         col1.metric("Count", len(all_sell))
         col2.metric("Highest RSI", round(all_sell['RSI'].max(), 1) if not all_sell.empty else 0)
         if not all_sell.empty:
-            st.dataframe(all_sell[['Stock','Price','RSI','MA20']], height=400, use_container_width=True)
-        else:
-            st.info("✅ No SELL signals!")
+            st.dataframe(all_sell[['Stock','Price','RSI','MA20']].sort_values('RSI', ascending=False), height=400, use_container_width=True)
     
     with tab3:
         st.markdown("### 🟢 **BUY** (RSI<30)")
@@ -166,64 +156,64 @@ if not st.session_state.df.empty:
         col1.metric("Count", len(all_buy))
         col2.metric("Lowest RSI", round(all_buy['RSI'].min(), 1) if not all_buy.empty else 0)
         if not all_buy.empty:
-            st.dataframe(all_buy[['Stock','Price','RSI','MA20']], height=400, use_container_width=True)
-        else:
-            st.info("📈 No BUY signals!")
+            st.dataframe(all_buy[['Stock','Price','RSI','MA20']].sort_values('RSI'), height=400, use_container_width=True)
     
     with tab4:
         st.markdown("### 🟡 **HOLD** (RSI 30-70)")
         col1, col2 = st.columns(2)
         col1.metric("Count", len(all_hold))
-        avg_rsi = round(all_hold['RSI'].mean(), 1) if not all_hold.empty and len(all_hold) > 0 else 0
-        col2.metric("Avg RSI", avg_rsi)
+        col2.metric("Avg RSI", round(all_hold['RSI'].mean(), 1) if not all_hold.empty else 0)
         if not all_hold.empty:
             st.dataframe(all_hold[['Stock','Price','RSI','MA20']].head(20), height=400, use_container_width=True)
     
-    # SUMMARY METRICS
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("🎯 TOTAL", len(df))
-    col2.metric("🟢 STRONGEST", len(strong_buy))
+    col2.metric("🟢 STRONG BUY", len(strong_buy))
     col3.metric("🔴 SELLS", len(all_sell))
-    col4.metric("🟡 HOLDS", len(all_hold))
+    col4.metric("🟡 HOLD", len(all_hold))
     
     csv = df.to_csv(index=False)
-    st.download_button("💾 DOWNLOAD ALL", csv, "nifty500-complete.csv", use_container_width=True)
+    st.download_button("💾 DOWNLOAD CSV", csv, "nifty500-complete.csv", use_container_width=True)
 
 else:
-    st.info("👈 Click **MANUAL SCAN NOW** to start scanning NIFTY 500 stocks")
+    st.info("👈 Click **MANUAL SCAN NOW** to start")
 
-# LIVE COUNTDOWN TIMER
+# 🔥 **LIVE COUNTDOWN TIMER** - Updates on EVERY interaction
 st.markdown("---")
-st.subheader("⏱️ **LIVE COUNTDOWN TIMER**")
+st.subheader("⏱️ **LIVE COUNTDOWN**")
 
 time_since = time.time() - st.session_state.last_scan
 remaining = max(0, 300 - time_since)
 m, s = divmod(int(remaining), 60)
 
-timer_color = "#ff4b2b" if remaining < 60 else "#56ab2f"
+# VISUAL INDICATOR: Timer color + refresh button
+timer_color = "#ff4b2b" if remaining < 60 else "#56ab2f" if remaining < 180 else "#ffa500"
+refresh_icon = "🔴" if remaining < 60 else "🟡" if remaining < 180 else "🟢"
+
 st.markdown(f"""
-<div style='text-align: center; font-size: 5rem; font-weight: bold; 
+<div style='text-align: center; font-size: 6rem; font-weight: bold; 
      color: {timer_color}; 
-     background: linear-gradient(45deg, #f0f0f0, #e0e0e0); 
-     padding: 2.5rem; border-radius: 25px; border: 5px solid {timer_color};
-     box-shadow: 0 10px 30px rgba(0,0,0,0.3);'>
+     background: linear-gradient(45deg, #f8f9fa, #e9ecef); 
+     padding: 3rem; border-radius: 30px; border: 6px solid {timer_color};
+     box-shadow: 0 15px 40px rgba(0,0,0,0.3);'>
     ⏳ **{m}:{s:02d}**
 </div>
-<div style='text-align: center; font-size: 1.4rem; color: #666; font-weight: 500;'>
-    Seconds until next **AUTO-SCAN** (NIFTY 500)
+<div style='text-align: center; font-size: 1.5rem; color: #666; font-weight: 500; margin-top: 1rem;'>
+    {refresh_icon} Click **🔄 TICK NOW** to update timer | Auto-scan in **{m}m {s}s**
 </div>
 """, unsafe_allow_html=True)
 
+# TIMER CONTROLS
 col1, col2, col3 = st.columns(3)
-col1.metric("🔄 Total Scans", st.session_state.scan_count)
-col2.metric("⏱️ Time Since Last", f"{int(time_since//60)}m {int(time_since%60)}s")
-col3.metric("📊 Stocks Scanned", f"{len(st.session_state.df) if not st.session_state.df.empty else 0}")
+col1.metric("🔄 Scans Done", st.session_state.scan_count)
+col2.metric("⏱️ Since Last Scan", f"{int(time_since//60):02d}:{int(time_since%60):02d}")
+col3.metric("📊 Stocks Scanned", len(st.session_state.df) if not st.session_state.df.empty else 0)
 
 st.info("""
-**🟢 STRONG BUY** = RSI<35 + Price>MA20 (Highest conviction)  
-**🟢 BUY** = RSI<30 (Oversold)  
-**🔴 SELL** = RSI>65/70 (Overbought)  
-**🟡 HOLD** = RSI 30-70 (Neutral)  
-**💾 Click tabs to see ALL stocks in each category**
-**✅ 100% ERROR-FREE - READY TO DEPLOY**
+**✅ HOW TIMER WORKS** (Streamlit limitation):
+• Timer **UPDATES on every click/refresh** 
+• Click **🔄 TICK NOW** anytime to see live countdown
+• **🔴 RED** = <1min | **🟡 YELLOW** = <3min | **🟢 GREEN** = Safe
+• Auto-scan triggers at **0:00**
+**🟢 STRONG BUY** = RSI<35 + Price>MA20 | **4 TABS** show all stocks!
 """)
