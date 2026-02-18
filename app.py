@@ -16,7 +16,7 @@ if 'failed' not in st.session_state:
 
 st.set_page_config(page_title="NIFTY 50 LIVE", layout="wide", page_icon="📈")
 st.title("🚀 NIFTY 50 RSI + MA SCANNER")
-st.markdown("**4 Charts + REAL-TIME COUNTDOWN | Auto + Manual Refresh**")
+st.markdown("**4 Charts + LIVE COUNTDOWN | Auto + Manual Refresh**")
 
 # NIFTY 50 stocks
 nifty50 = [
@@ -91,7 +91,7 @@ with col2:
         st.cache_data.clear()
         st.rerun()
 
-# AUTO-REFRESH EXECUTION
+# AUTO-REFRESH
 time_since_scan = time.time() - st.session_state.last_scan
 if time_since_scan > 300 or st.session_state.scan_count == 0:
     df, failed = scan_nifty50()
@@ -105,4 +105,28 @@ if not st.session_state.df.empty:
     df = st.session_state.df
     failed = st.session_state.failed
     
-    st.success(f"✅ **SUCCESS**: {len(df)}/{50-failed} stocks | 
+    # ✅ FIXED f-string
+    st.success(f"✅ SUCCESS: {len(df)}/{50-failed} stocks | Scan #{st.session_state.scan_count}")
+    
+    strong_buy = df[df['Signal'] == "🟢 STRONG BUY"]
+    all_sell = df[df['Signal'].str.contains('SELL', na=False)]
+    all_buy = df[df['Signal'] == "🟢 BUY"]
+    all_hold = df[df['Signal'] == "🟡 HOLD"]
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown("### 🟢 **STRONG BUY**")
+        st.metric("Count", len(strong_buy))
+        if not strong_buy.empty:
+            st.dataframe(strong_buy[['Stock','Price','RSI']], height=300)
+    
+    with col2:
+        st.markdown("### 🔴 **SELL**")
+        st.metric("Count", len(all_sell))
+        if not all_sell.empty:
+            st.dataframe(all_sell[['Stock','Price','RSI']], height=300)
+    
+    with col3:
+        st.markdown("### 🟢 **BUY**")
+        st.metric("Count",
