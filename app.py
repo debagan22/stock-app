@@ -13,7 +13,7 @@ if 'auto_active' not in st.session_state: st.session_state.auto_active = True
 if 'batch_progress' not in st.session_state: st.session_state.batch_progress = 0
 
 st.set_page_config(page_title="NIFTY 500 LIVE", layout="wide", page_icon="🚀")
-st.title("🔥 TRUE NIFTY 500 SCANNER - BATCHED (METHOD 2)")
+st.title("🔥 TRUE NIFTY 500 SCANNER ")
 
 # 🔥 TRUE NIFTY 500 - OFFICIAL NSE LIST
 @st.cache_data(ttl=86400)
@@ -176,8 +176,8 @@ col4.metric("⏱️ Time Left", "8-10min" if 'full_trigger' in st.session_state 
 col5.metric("✅ Stocks", f"{len(nifty500)}/500")
 
 st.info("""
-**🚀 METHOD 2 IMPLEMENTED**: 500 stocks → 5 batches × 100 stocks → 30s pause
-**⏱️ TOTAL TIME**: 8-10 minutes (Rate limit safe)
+**🚀**: 500 stocks → 5 batches × 100 stocks → 30s pause
+**⏱️ TOTAL TIME**: 8-10 minutes
 **✅ MA20 VISIBLE**: 20-period Simple Moving Average
 **🔥 Click SCAN TRUE 500** → Watch batch progress!
 **💾 Individual CSV downloads per signal**
