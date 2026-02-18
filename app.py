@@ -5,8 +5,8 @@ import ta
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-st.title("🔴 LIVE Indian Stock Analyzer (Rate-Limit Fixed)")
-st.markdown("**Smart delays + fewer requests = NO MORE ERRORS**")
+st.title("🔴 LIVE Indian Stock Analyzer")
+st.markdown("**Live Updates 30 Sec**")
 
 stocks = ["RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS", 
           "ICICIBANK.NS", "KOTAKBANK.NS", "SBIN.NS", "BHARTIARTL.NS", "ITC.NS"]
