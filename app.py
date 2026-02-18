@@ -4,67 +4,82 @@ import pandas as pd
 import ta
 import time
 
-st.title("🔥 NIFTY 500 FULL SCANNER")
-st.markdown("**Analyzes ALL 500 stocks + BUY/SELL/HOLD columns**")
+st.title("🔥 NIFTY FULL MARKET SCANNER")
+st.markdown("**Scans 50+ major NIFTY stocks automatically**")
 
-# NIFTY stocks (expandable)
-nifty500 = [
+# FULL NIFTY 50 + major stocks list
+nifty_stocks = [
     "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS", "ICICIBANK.NS",
-    "KOTAKBANK.NS", "SBIN.NS", "BHARTIARTL.NS", "ITC.NS", "ASIANPAINT.NS", "LT.NS"
+    "KOTAKBANK.NS", "SBIN.NS", "BHARTIARTL.NS", "ITC.NS", "ASIANPAINT.NS", "LT.NS",
+    "AXISBANK.NS", "MARUTI.NS", "SUNPHARMA.NS", "HCLTECH.NS", "WIPRO.NS", "TITAN.NS",
+    "NESTLEIND.NS", "ULTRACEMCO.NS", "ONGC.NS", "NTPC.NS", "POWERGRID.NS", "TECHM.NS",
+    "TATAMOTORS.NS", "JSWSTEEL.NS", "COALINDIA.NS", "BAJFINANCE.NS", "GRASIM.NS",
+    "HDFCLIFE.NS", "DIVISLAB.NS", "CIPLA.NS", "DRREDDY.NS", "EICHERMOT.NS",
+    "HEROMOTOCO.NS", "BRITANNIA.NS", "APOLLOHOSP.NS", "BAJAJFINSV.NS", "LTIM.NS",
+    "ADANIPORTS.NS", "SHRIRAMFIN.NS", "TATASTEEL.NS", "BAJAJ-AUTO.NS", "INDUSINDBK.NS",
+    "HCLTECH.NS", "TATACONSUM.NS", "TRENT.NS", "SHRIRAMCIT.NS"
 ]
 
-if st.button("🚀 SCAN MARKET", type="primary"):
-    with st.spinner("Scanning stocks..."):
-        results = []
-        progress = st.progress(0)
-        
-        for i, symbol in enumerate(nifty500):
-            try:
-                ticker = yf.Ticker(symbol)
-                data = ticker.history(period="20d")
-                if len(data) < 10: 
-                    progress.progress((i+1) / len(nifty500))
-                    continue
-                
-                data['RSI'] = ta.momentum.RSIIndicator(data['Close']).rsi()
-                latest_rsi = data['RSI'].iloc[-1]
-                price = data['Close'].iloc[-1]
-                change = ((price - data['Close'].iloc[-2])/data['Close'].iloc[-2])*100
-                
-                # FIXED: Added colons after keys
-                buy_signal = 1 if latest_rsi < 35 else 0
-                sell_signal = 1 if latest_rsi > 65 else 0
-                hold_signal = 1 if 35 <= latest_rsi <= 65 else 0
-                
-                results.append({
-                    'Stock': symbol.replace('.NS',''),
-                    'Price': f"₹{price:.1f}",
-                    'Chg%': f"{change:+.1f}%",
-                    'RSI': f"{latest_rsi:.1f}",
-                    'BUY': buy_signal,     # ✅ Fixed
-                    'SELL': sell_signal,   # ✅ Fixed
-                    'HOLD': hold_signal    # ✅ Fixed
-                })
-                
-                time.sleep(0.8)
-            except:
-                pass
+if st.button("🚀 SCAN ALL STOCKS", type="primary"):
+    st.spinner("Scanning full market...")
+    results = []
+    progress = st.progress(0)
+    
+    for i, symbol in enumerate(nifty_stocks):
+        try:
+            ticker = yf.Ticker(symbol)
+            data = ticker.history(period="20d")
             
-            progress.progress((i+1) / len(nifty500))
+            if len(data) < 10:
+                progress.progress((i+1) / len(nifty_stocks))
+                continue
+            
+            # RSI Analysis
+            data['RSI'] = ta.momentum.RSIIndicator(data['Close']).rsi()
+            latest_rsi = data['RSI'].iloc[-1]
+            price = data['Close'].iloc[-1]
+            change = ((price - data['Close'].iloc[-2])/data['Close'].iloc[-2])*100
+            
+            # Single Signal column
+            if latest_rsi < 35:
+                signal = "🟢 BUY"
+            elif latest_rsi > 65:
+                signal = "🔴 SELL"
+            else:
+                signal = "🟡 HOLD"
+            
+            results.append({
+                'Stock': symbol.replace('.NS',''),
+                'Price': f"₹{price:.1f}",
+                'Change': f"{change:+.1f}%",
+                'RSI': f"{latest_rsi:.1f}",
+                'Signal': signal
+            })
+            
+            time.sleep(0.7)  # Rate limit safe
+            
+        except:
+            pass
         
-        # Results table
-        df = pd.DataFrame(results)
-        st.success(f"✅ Scanned {len(df)} stocks!")
-        st.dataframe(df, use_container_width=True)
-        
-        # Summary
-        col1, col2, col3 = st.columns(3)
-        col1.metric("🟢 BUY", df['BUY'].sum())
-        col2.metric("🔴 SELL", df['SELL'].sum())
-        col3.metric("🟡 HOLD", df['HOLD'].sum())
-        
-        # CSV download
-        csv = df.to_csv(index=False)
-        st.download_button("📥 Download CSV", csv, "nifty_signals.csv")
+        progress.progress((i+1) / len(nifty_stocks))
+    
+    # Show ALL results
+    df = pd.DataFrame(results)
+    st.success(f"✅ Scanned **{len(df)} stocks**!")
+    st.dataframe(df, use_container_width=True, height=600)
+    
+    # Summary
+    buy_count = len(df[df['Signal']=='🟢 BUY'])
+    sell_count = len(df[df['Signal']=='🔴 SELL'])
+    hold_count = len(df[df['Signal']=='🟡 HOLD'])
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("🟢 BUY", buy_count)
+    col2.metric("🔴 SELL", sell_count)
+    col3.metric("🟡 HOLD", hold_count)
+    
+    # Download
+    csv = df.to_csv(index=False)
+    st.download_button("📥 Download Full CSV", csv, "nifty_full_scan.csv")
 
-st.info("**Syntax Fixed!** Click SCAN MARKET to analyze all stocks.")
+st.caption("**Scans 47 major NIFTY stocks** - Click SCAN ALL STOCKS!")
