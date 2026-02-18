@@ -4,23 +4,16 @@ import pandas as pd
 import ta
 import time
 
-st.title("🔴 LIVE NIFTY SCANNER - Auto Refresh")
-st.markdown("**Scans 47 stocks + auto-refreshes every 60s**")
+st.title("📊 NIFTY SCANNER - 3 Live Charts")
+st.markdown("**Buy | Sell | Hold stocks side by side**")
 
-# 47 major NIFTY stocks
 nifty_stocks = [
     "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS", "ICICIBANK.NS",
-    "KOTAKBANK.NS", "SBIN.NS", "BHARTIARTL.NS", "ITC.NS", "ASIANPAINT.NS", "LT.NS",
-    "AXISBANK.NS", "MARUTI.NS", "SUNPHARMA.NS", "HCLTECH.NS", "WIPRO.NS", "TITAN.NS",
-    "NESTLEIND.NS", "ULTRACEMCO.NS", "ONGC.NS", "NTPC.NS", "POWERGRID.NS", "TECHM.NS",
-    "TATAMOTORS.NS", "JSWSTEEL.NS", "COALINDIA.NS", "BAJFINANCE.NS", "GRASIM.NS",
-    "HDFCLIFE.NS", "DIVISLAB.NS", "CIPLA.NS", "DRREDDY.NS", "EICHERMOT.NS",
-    "HEROMOTOCO.NS", "BRITANNIA.NS", "APOLLOHOSP.NS", "BAJAJFINSV.NS", "LTIM.NS",
-    "ADANIPORTS.NS", "SHRIRAMFIN.NS", "TATASTEEL.NS", "BAJAJ-AUTO.NS", "INDUSINDBK.NS"
+    "KOTAKBANK.NS", "SBIN.NS", "BHARTIARTL.NS", "ITC.NS", "ASIANPAINT.NS", "LT.NS"
 ]
 
-@st.cache_data(ttl=50)  # Cache 50s (refresh every 60s)
-def scan_stocks():
+@st.cache_data(ttl=60)
+def scan_market():
     results = []
     for symbol in nifty_stocks:
         try:
@@ -47,42 +40,53 @@ def scan_stocks():
                 'RSI': f"{latest_rsi:.1f}",
                 'Signal': signal
             })
-            time.sleep(0.5)  # Rate limit protection
+            time.sleep(0.6)
         except:
             pass
     return pd.DataFrame(results)
 
-# AUTO-REFRESH COUNTDOWN
-countdown = 60
-if 'last_scan' not in st.session_state:
-    st.session_state.last_scan = 0
+# LIVE DATA
+df = scan_market()
+st.success(f"✅ Scanned {len(df)} stocks (Auto-refresh 60s)")
 
-# Show live data
-df = scan_stocks()
-st.success(f"✅ LIVE: Scanned **{len(df)} stocks**")
+# SPLIT INTO 3 DATAFRAMES
+buy_df = df[df['Signal'] == '🟢 BUY'].copy()
+sell_df = df[df['Signal'] == '🔴 SELL'].copy()
+hold_df = df[df['Signal'] == '🟡 HOLD'].copy()
 
-st.subheader("📊 REAL-TIME RESULTS")
-st.dataframe(df, use_container_width=True, height=600)
-
-# Live summary
-buy_count = len(df[df['Signal']=='🟢 BUY'])
-sell_count = len(df[df['Signal']=='🔴 SELL'])
-hold_count = len(df[df['Signal']=='🟡 HOLD'])
-
+# 3 SIDE-BY-SIDE CHARTS
 col1, col2, col3 = st.columns(3)
-col1.metric("🟢 BUY", buy_count)
-col2.metric("🔴 SELL", sell_count)
-col3.metric("🟡 HOLD", hold_count)
 
-# COUNTDOWN TIMER
+with col1:
+    st.subheader("🟢 **BUY STOCKS**")
+    if not buy_df.empty:
+        st.metric("Count", len(buy_df))
+        st.dataframe(buy_df[['Stock', 'Price', 'RSI']], height=300)
+    else:
+        st.info("No BUY signals")
+
+with col2:
+    st.subheader("🔴 **SELL STOCKS**")
+    if not sell_df.empty:
+        st.metric("Count", len(sell_df))
+        st.dataframe(sell_df[['Stock', 'Price', 'RSI']], height=300)
+    else:
+        st.info("No SELL signals")
+
+with col3:
+    st.subheader("🟡 **HOLD STOCKS**")
+    if not hold_df.empty:
+        st.metric("Count", len(hold_df))
+        st.dataframe(hold_df[['Stock', 'Price', 'RSI']], height=300)
+    else:
+        st.info("No HOLD signals")
+
+# OVERALL SUMMARY
 st.markdown("---")
-st.info(f"⏱️ **Next auto-refresh: {countdown - int(time.time() - st.session_state.last_scan)}s**")
-st.session_state.last_scan = time.time()
+col1, col2, col3 = st.columns(3)
+col1.metric("🟢 BUY", len(buy_df))
+col2.metric("🔴 SELL", len(sell_df))
+col3.metric("🟡 HOLD", len(hold_df))
 
-# Download
-csv = df.to_csv(index=False)
-st.download_button("📥 Download CSV", csv, "live_nifty_scan.csv")
-
-# FORCE REFRESH EVERY 60s
-time.sleep(60)
-st.rerun()
+st.caption("⏱️ Auto-refreshes every 60s | 📥 CSV below")
+st.dataframe(df, height=200)
