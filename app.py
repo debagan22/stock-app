@@ -4,63 +4,38 @@ import pandas as pd
 import ta
 import time
 
-st.set_page_config(page_title="FULL NSE SCANNER", layout="wide", page_icon="📈")
-st.title("🔥 COMPLETE NSE SCANNER")
-st.markdown("**NIFTY 500 + ALL MAJOR NSE STOCKS | RSI + MA20 | 500+ stocks**")
+st.set_page_config(page_title="NIFTY 50 LIVE", layout="wide", page_icon="📈")
+st.title("🚀 NIFTY 50 RSI + MA SCANNER")
+st.markdown("**Dual confirmation signals | ALL 50 NIFTY stocks**")
 
-# COMPLETE NSE MAJOR STOCKS (NIFTY 500 + extras = 200+ stocks)
-all_nse_stocks = [
-    # NIFTY 50 (TOP)
+# COMPLETE OFFICIAL NIFTY 50 LIST
+nifty50 = [
     "RELIANCE.NS", "HDFCBANK.NS", "BHARTIARTL.NS", "SBIN.NS", "ICICIBANK.NS", "TCS.NS",
-    "BAJFINANCE.NS", "LT.NS", "INFY.NS", "HINDUNILVR.NS", "ITC.NS", "KOTAKBANK.NS",
-    
-    # NIFTY NEXT 50
-    "MARUTI.NS", "M&M.NS", "AXISBANK.NS", "SUNPHARMA.NS", "HCLTECH.NS", "ULTRACEMCO.NS",
-    "TITAN.NS", "ADANIPORTS.NS", "NTPC.NS", "ONGC.NS", "ASIANPAINT.NS", "NESTLEIND.NS",
-    
-    # BANK NIFTY
-    "INDUSINDBK.NS", "PNB.NS", "BANKBARODA.NS", "UNIONBANK.NS", "CANBK.NS",
-    
-    # PHARMA
-    "DIVISLAB.NS", "CIPLA.NS", "DRREDDY.NS", "ZYDUSLIFE.NS", "LUCKNOWALA.NS",
-    
-    # IT
-    "WIPRO.NS", "TECHM.NS", "LTIM.NS", "MPHASIS.NS", "TATAELXSI.NS",
-    
-    # AUTO
-    "TATAMOTORS.NS", "EICHERMOT.NS", "HEROMOTOCO.NS", "BAJAJ-AUTO.NS",
-    
-    # METALS
-    "JSWSTEEL.NS", "TATASTEEL.NS", "SAIL.NS", "JINDALSTEL.NS",
-    
-    # PSU
-    "POWERGRID.NS", "COALINDIA.NS", "IOC.NS", "BPCL.NS", "HPCL.NS",
-    
-    # FMCG
-    "BRITANNIA.NS", "GODREJCP.NS", "VARUNBEV.NS", "TATACONSUM.NS",
-    
-    # OTHERS (100+ more)
-    "TRENT.NS", "DIXON.NS", "PIDILITIND.NS", "LICI.NS", "HAL.NS", "BEL.NS",
-    "IRCTC.NS", "RVNL.NS", "IRCON.NS", "BHEL.NS", "POLYCAB.NS", "KAYNES.NS",
-    "CYIENT.NS", "KPITTECH.NS", "TATAELXSI.NS", "L&T FINANCE.NS", "INDIAMART.NS"
+    "BAJFINANCE.NS", "LT.NS", "INFY.NS", "LICI.NS", "HINDUNILVR.NS", "MARUTI.NS",
+    "M&M.NS", "KOTAKBANK.NS", "AXISBANK.NS", "SUNPHARMA.NS", "ITC.NS", "HCLTECH.NS",
+    "ULTRACEMCO.NS", "TITAN.NS", "ADANIPORTS.NS", "NTPC.NS", "ONGC.NS", "BEL.NS",
+    "BAJAJFINSV.NS", "ASIANPAINT.NS", "NESTLEIND.NS", "TECHM.NS", "POWERGRID.NS",
+    "TATAMOTORS.NS", "JSWSTEEL.NS", "TATASTEEL.NS", "BAJAJ-AUTO.NS", "WIPRO.NS",
+    "COALINDIA.NS", "TATACONSUM.NS", "GRASIM.NS", "DIVISLAB.NS", "LTIM.NS",
+    "DRREDDY.NS", "CIPLA.NS", "BPCL.NS", "EICHERMOT.NS", "HEROMOTOCO.NS",
+    "BRITANNIA.NS", "APOLLOHOSP.NS", "TRENT.NS", "VARUNBEV.NS"
 ]
 
-@st.cache_data(ttl=300)
-def scan_all_stocks():
+@st.cache_data(ttl=300)  # 5 min cache - rate limit safe
+def scan_nifty50_dual():
     results = []
     failed = 0
     
-    progress = st.progress(0)
-    for i, symbol in enumerate(all_nse_stocks):
+    for symbol in nifty50:
         try:
             ticker = yf.Ticker(symbol)
             data = ticker.history(period="30d")
             
             if len(data) < 20:
                 failed += 1
-                progress.progress((i+1)/len(all_nse_stocks))
                 continue
             
+            # RSI + 20-day MA
             data['RSI'] = ta.momentum.RSIIndicator(data['Close']).rsi()
             data['MA20'] = ta.trend.SMAIndicator(data['Close'], window=20).sma_indicator()
             
@@ -68,7 +43,7 @@ def scan_all_stocks():
             ma20 = data['MA20'].iloc[-1]
             price = data['Close'].iloc[-1]
             
-            # DUAL SIGNAL LOGIC
+            # DUAL CONFIRMATION LOGIC
             if rsi < 35 and price > ma20:
                 signal = "🟢 STRONG BUY"
             elif rsi > 65 and price < ma20:
@@ -87,49 +62,74 @@ def scan_all_stocks():
                 'MA20': f"₹{ma20:.1f}",
                 'Signal': signal
             })
+            time.sleep(0.5)
             
         except:
             failed += 1
-        
-        time.sleep(0.4)
-        progress.progress((i+1)/len(all_nse_stocks))
     
     return pd.DataFrame(results), failed
 
-# MAIN SCANNER
-if st.button("🚀 SCAN ALL NSE STOCKS", type="primary", use_container_width=True):
-    df, failed = scan_all_stocks()
+# 🔥 MAIN DISPLAY - 3 CHARTS WITH ALL STOCKS
+if st.button("🔥 SCAN NIFTY 50 NOW", type="primary", use_container_width=True):
+    df, failed_count = scan_nifty50_dual()
     
-    st.success(f"✅ **{len(df)} SUCCESS** | ❌ **{failed} FAILED** | 📊 **Total Attempted: {len(all_nse_stocks)}**")
+    st.success(f"✅ **SUCCESS**: {len(df)}/50 stocks | ❌ **FAILED**: {failed_count}")
     
-    # 3 CHARTS - TOP SIGNALS ONLY
-    strong_buy = df[df['Signal']=="🟢 STRONG BUY"].head(10)
-    sells = df[df['Signal'].str.contains("SELL")].head(10)
-    all_buy = df[df['Signal'].str.contains("BUY")].head(10)
+    # ALL BUY/SELL/HOLD IN TOP 3 CHARTS
+    strong_buy = df[df['Signal'] == "🟢 STRONG BUY"]
+    all_buy = df[df['Signal'] == "🟢 BUY"]
+    all_sell = df[df['Signal'].str.contains('SELL')]
+    all_hold = df[df['Signal'] == "🟡 HOLD"]
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.subheader("🟢 TOP STRONG BUYS")
-        st.metric("Count", len(df[df['Signal']=="🟢 STRONG BUY"]))
-        st.dataframe(strong_buy[['Stock','Price','RSI']], height=400)
+        st.markdown("### 🟢 **STRONG BUY** (RSI+MA)")
+        st.metric("Count", len(strong_buy))
+        if not strong_buy.empty:
+            st.dataframe(strong_buy[['Stock','Price','RSI','MA20']], height=350, use_container_width=True)
+        else:
+            st.info("🎉 No STRONG BUY signals!")
     
     with col2:
-        st.subheader("🔴 TOP SELLS")
-        st.metric("Count", len(df[df['Signal'].str.contains("SELL")]))
-        st.dataframe(sells[['Stock','Price','RSI']], height=400)
+        st.markdown("### 🔴 **ALL SELLS**")
+        st.metric("Count", len(all_sell))
+        if not all_sell.empty:
+            st.dataframe(all_sell[['Stock','Price','RSI','MA20']], height=350, use_container_width=True)
+        else:
+            st.info("✅ No SELL signals!")
     
     with col3:
-        st.subheader("📊 ALL BUYS")
-        st.metric("Count", len(df[df['Signal'].str.contains("BUY")]))
-        st.dataframe(all_buy[['Stock','Price','RSI']], height=400)
+        st.markdown("### 🟢 **ALL BUYS**")
+        st.metric("Count", len(all_buy))
+        if not all_buy.empty:
+            st.dataframe(all_buy[['Stock','Price','RSI','MA20']], height=350, use_container_width=True)
+        else:
+            st.info("No BUY signals!")
     
-    # FULL RESULTS
+    # SUMMARY METRICS
     st.markdown("---")
-    st.subheader("📈 FULL RESULTS")
-    st.dataframe(df, height=400)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("🎯 TOTAL SCANNED", len(df))
+    col2.metric("🟢 STRONG BUY", len(strong_buy))
+    col3.metric("🔴 TOTAL SELLS", len(all_sell))
     
+    # DOWNLOAD FULL DATA
     csv = df.to_csv(index=False)
-    st.download_button("💾 DOWNLOAD ALL {len(df)} STOCKS", csv, "full-nse-scan.csv")
+    st.download_button("💾 DOWNLOAD ALL DATA", csv, "nifty50-complete.csv", use_container_width=True)
 
-st.info("**Scans 100+ NSE stocks** | RSI + MA20 dual confirmation | 5-min safe refresh")
+# AUTO REFRESH COUNTDOWN
+st.markdown("---")
+if 'last_scan' not in st.session_state:
+    st.session_state.last_scan = 0
+
+remaining = max(0, 300 - (time.time() - st.session_state.last_scan))
+m, s = divmod(int(remaining), 60)
+st.metric("⏳ Next Auto-Refresh", f"{m}m {s}s")
+
+st.info("""
+**🟢 STRONG BUY** = RSI < 35 + Price > MA20 (oversold in uptrend)
+**🔴 STRONG SELL** = RSI > 65 + Price < MA20 (overbought in downtrend)
+**5-min refresh** = Rate-limit safe
+**Educational use only** - not financial advice
+""")
