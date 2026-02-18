@@ -104,4 +104,4 @@ remaining = max(0, 300 - (time.time() - st.session_state.last_scan))
 m, s = divmod(int(remaining), 60)
 st.metric("⏳ Auto Refresh", f"{m}m {s}s")
 
-st.info("✅ **5 min refresh = NO BLOCKS EVER** | 40 major NIFTY stocks")
+st.info("✅ **5 min refresh ** |  Major NIFTY stocks")
