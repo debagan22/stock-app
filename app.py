@@ -3,11 +3,12 @@ import yfinance as yf
 import pandas as pd
 import ta
 import time
+import numpy as np
 
 st.set_page_config(layout="wide", page_icon="📈")
-st.title("📈 **NIFTY 100 SCANNER** - **Large/Mid/Small Cap Signals**")
+st.title("📈 **NIFTY 100 SCANNER** - **RSI + MACD + MA20**")
 
-# ✅ COMPLETE NIFTY 100 STOCKS (Feb 2026 - 100 stocks)
+# ✅ COMPLETE NIFTY 100 STOCKS (Feb 2026 - EXACTLY 100)
 NIFTY100_COMPLETE = [
     'RELIANCE', 'HDFCBANK', 'TCS', 'INFY', 'ICICIBANK', 'BHARTIARTL', 'ITC', 'KOTAKBANK', 
     'HINDUNILVR', 'LT', 'AXISBANK', 'ASIANPAINT', 'MARUTI', 'SUNPHARMA', 'TITAN', 
@@ -26,14 +27,18 @@ NIFTY100_COMPLETE = [
     'PFC', 'RECLTD'
 ]
 
-# Market Cap Classification (₹ Cr)
-MARKET_CAP_THRESHOLDS = {
-    'Large Cap': 50000,   # Top 50 by market cap
-    'Mid Cap': 15000,     # 50-75 range  
-    'Small Cap': 0        # Rest of Nifty 100
-}
+# ✅ NIFTY 50 (Top 50 Large Cap)
+NIFTY_50 = [
+    'RELIANCE', 'HDFCBANK', 'TCS', 'INFY', 'ICICIBANK', 'BHARTIARTL', 'ITC', 'KOTAKBANK', 
+    'HINDUNILVR', 'LT', 'AXISBANK', 'ASIANPAINT', 'MARUTI', 'SUNPHARMA', 'TITAN', 
+    'NESTLEIND', 'ULTRACEMCO', 'POWERGRID', 'TATAMOTORS', 'JSWSTEEL', 
+    'ONGC', 'M&M', 'NTPC', 'TECHM', 'WIPRO', 'LTIM', 'HCLTECH', 'SBIN', 
+    'BAJFINANCE', 'TATASTEEL', 'GRASIM', 'HDFCLIFE', 'CIPLA', 'DIVISLAB', 
+    'DRREDDY', 'EICHERMOT', 'COALINDIA', 'BRITANNIA', 'HINDALCO', 'BPCL'
+]
 
-# Initialize session state
+st.sidebar.info(f"📊 **Total Stocks: {len(NIFTY100_COMPLETE)}/100** ✅")
+
 if 'scan_complete' not in st.session_state:
     st.session_state.scan_complete = False
 
@@ -41,30 +46,46 @@ if 'scan_complete' not in st.session_state:
 def get_nifty_data(symbol):
     try:
         ticker = yf.Ticker(symbol + '.NS')
-        info = ticker.info
-        hist = ticker.history(period="2mo")
+        hist = ticker.history(period="3mo", interval="1d")  # More data for indicators
         
-        if len(hist) >= 25:
-            rsi = ta.momentum.RSIIndicator(hist['Close'], 14).rsi().iloc[-1]
+        if len(hist) >= 30:
             price = hist['Close'].iloc[-1]
+            prev_price = hist['Close'].iloc[-2]
+            change = ((price / prev_price - 1) * 100) if len(hist) > 1 else 0
+            
+            # 1️⃣ RSI (14)
+            rsi = ta.momentum.RSIIndicator(hist['Close'], 14).rsi().iloc[-1]
+            
+            # 2️⃣ MACD (12,26,9)
+            macd = ta.trend.MACD(hist['Close'], window_slow=26, window_fast=12, window_sign=9)
+            macd_line = macd.macd().iloc[-1]
+            signal_line = macd.macd_signal().iloc[-1]
+            histogram = macd.macd_diff().iloc[-1]
+            
+            # 3️⃣ MA20 & Price Position
             ma20 = hist['Close'].rolling(20).mean().iloc[-1]
-            change = ((price / hist['Close'].iloc[-2] - 1) * 100) if len(hist) > 1 else 0
-            market_cap = info.get('marketCap', 0) / 1e7  # Convert to ₹ Cr
+            price_vs_ma20 = (price > ma20) * 1
             
-            # Determine cap category
-            if market_cap >= MARKET_CAP_THRESHOLDS['Large Cap']:
-                cap_category = '🟦 LARGE CAP'
-            elif market_cap >= MARKET_CAP_THRESHOLDS['Mid Cap']:
-                cap_category = '🟨 MID CAP'
-            else:
-                cap_category = '🟢 SMALL CAP'
+            # Category
+            category = '🟦 NIFTY 50' if symbol in NIFTY_50 else '🟨 NIFTY NEXT 50'
             
-            # Signal logic
-            if rsi < 35 and price > ma20:
-                signal = '🟢 STRONG BUY'
-            elif rsi < 45:
-                signal = '🟢 BUY'
-            elif rsi > 65:
+            # 🚀 TRIPLE CONFIRMATION SIGNAL LOGIC
+            rsi_oversold = rsi < 35
+            rsi_buy_zone = rsi < 45
+            rsi_sell_zone = rsi > 65
+            
+            macd_bullish = macd_line > signal_line
+            macd_strong_bull = macd_bullish and histogram > 0
+            macd_bearish = macd_line < signal_line
+            
+            # Signal Priority: MA20 > MACD > RSI
+            if price_vs_ma20 and rsi_oversold and macd_strong_bull:
+                signal = '🚀 SUPER BUY (All 3)'
+            elif price_vs_ma20 and (rsi_buy_zone or macd_bullish):
+                signal = '🟢 STRONG BUY (2/3)'
+            elif rsi_buy_zone or macd_bullish:
+                signal = '🟢 BUY (1/3)'
+            elif rsi_sell_zone or macd_bearish:
                 signal = '🔴 SELL'
             else:
                 signal = '🟡 HOLD'
@@ -72,51 +93,61 @@ def get_nifty_data(symbol):
             return {
                 'Stock': symbol,
                 'Price': f"₹{price:.0f}",
-                'RSI': f"{rsi:.1f}",
-                'MA20': f"₹{ma20:.0f}",
                 'Change': f"{change:.1f}%",
+                'RSI': f"{rsi:.1f}",
+                'MACD': f"{macd_line:.3f}",
+                'MACD Signal': f"{signal_line:.3f}",
+                'Histogram': f"{histogram:.3f}",
+                'MA20': f"₹{ma20:.0f}",
+                'Price/MA20': '📈' if price > ma20 else '📉',
                 'Signal': signal,
-                'Cap': cap_category,
-                'Market Cap (₹Cr)': f"{market_cap:,.0f}",
-                'RSI_Value': rsi
+                'Category': category,
+                'RSI_Value': rsi,
+                'MACD_Value': macd_line
             }
     except:
         pass
     return None
 
 def display_category_signals(all_data, category):
-    category_data = [d for d in all_data if d['Cap'] == category]
+    category_data = [d for d in all_data if d['Category'] == category]
     
+    super_buy = [d for d in category_data if 'SUPER BUY' in d['Signal']]
     strong_buy = [d for d in category_data if d['Signal'] == '🟢 STRONG BUY']
     buy_signals = [d for d in category_data if d['Signal'] == '🟢 BUY']
     sell_signals = [d for d in category_data if d['Signal'] == '🔴 SELL']
     hold_signals = [d for d in category_data if d['Signal'] == '🟡 HOLD']
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
-        st.metric("🟢 STRONG BUY", len(strong_buy))
+        st.metric("🚀 SUPER BUY", len(super_buy))
+        if super_buy:
+            st.dataframe(pd.DataFrame(super_buy), use_container_width=True, hide_index=True)
+    
+    with col2:
+        st.metric("🟢 STRONG", len(strong_buy))
         if strong_buy:
             st.dataframe(pd.DataFrame(strong_buy), use_container_width=True, hide_index=True)
     
-    with col2:
+    with col3:
         st.metric("🟢 BUY", len(buy_signals))
         if buy_signals:
             st.dataframe(pd.DataFrame(buy_signals), use_container_width=True, hide_index=True)
     
-    with col3:
+    with col4:
         st.metric("🔴 SELL", len(sell_signals))
         if sell_signals:
             st.dataframe(pd.DataFrame(sell_signals), use_container_width=True, hide_index=True)
     
-    with col4:
+    with col5:
         st.metric("🟡 HOLD", len(hold_signals))
         if hold_signals:
             st.dataframe(pd.DataFrame(hold_signals), use_container_width=True, hide_index=True)
 
-# MAIN SCAN BUTTON
+# MAIN CONTROLS
 col_btn1, col_btn2 = st.columns([3, 1])
-if col_btn1.button("🚀 **SCAN ALL 100 NIFTY STOCKS BY CAP (2-3 MIN)**", type="primary", use_container_width=True):
+if col_btn1.button("🚀 **SCAN NIFTY 100 - RSI+MACD+MA20 (3 MIN)**", type="primary", use_container_width=True):
     st.session_state.scan_complete = True
     st.rerun()
 
@@ -125,11 +156,10 @@ with col_btn2:
         st.session_state.scan_complete = False
         st.rerun()
 
-# RESULTS BY CATEGORY
+# RESULTS
 if st.session_state.scan_complete:
-    st.subheader("🚀 **COMPLETE NIFTY 100 SCAN RESULTS**")
+    st.subheader("🚀 **NIFTY 100 TRIPLE INDICATOR SCAN**")
     
-    # Progress bar
     total_stocks = len(NIFTY100_COMPLETE)
     progress = st.progress(0)
     
@@ -146,57 +176,57 @@ if st.session_state.scan_complete:
     
     progress.empty()
     
-    # Summary metrics
     st.success(f"✅ **Scanned {successful_scans}/{total_stocks} stocks**")
-    col_m1, col_m2 = st.columns(2)
+    col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
         st.metric("📊 Success Rate", f"{successful_scans/total_stocks*100:.1f}%")
     with col_m2:
         st.metric("⏱️ Updated", pd.Timestamp.now().strftime("%H:%M:%S IST"))
+    with col_m3:
+        st.metric("🚀 Super Buys", len([d for d in all_data if 'SUPER BUY' in d['Signal']]))
     
-    # LARGE CAP SECTION
+    # 🟦 NIFTY 50 SECTION
     st.markdown("---")
-    st.markdown("## 🟦 **LARGE CAP** (₹50,000+ Cr)")
-    display_category_signals(all_data, '🟦 LARGE CAP')
+    st.markdown("## 🟦 **NIFTY 50** (50 Large Cap Stocks)")
+    display_category_signals(all_data, '🟦 NIFTY 50')
     
-    # MID CAP SECTION  
+    # 🟨 NIFTY NEXT 50 SECTION
     st.markdown("---")
-    st.markdown("## 🟨 **MID CAP** (₹15,000-50,000 Cr)")
-    display_category_signals(all_data, '🟨 MID CAP')
+    st.markdown("## 🟨 **NIFTY NEXT 50** (50 Large/Mid Cap Stocks)")
+    display_category_signals(all_data, '🟨 NIFTY NEXT 50')
     
-    # SMALL CAP SECTION
+    # 📊 COMPLETE RESULTS
     st.markdown("---")
-    st.markdown("## 🟢 **SMALL CAP** (<₹15,000 Cr)")
-    display_category_signals(all_data, '🟢 SMALL CAP')
-    
-    # COMPLETE RESULTS TABLE
-    st.markdown("---")
-    st.subheader("📋 **COMPLETE RESULTS** (Sorted by RSI)")
+    st.subheader("📋 **COMPLETE RESULTS** - **Sorted by RSI**")
     
     if all_data:
         df_complete = pd.DataFrame(all_data).sort_values('RSI_Value')
-        display_df = df_complete.drop(columns=['RSI_Value'])
+        display_df = df_complete.drop(columns=['RSI_Value', 'MACD_Value'])
         st.dataframe(display_df, use_container_width=True, hide_index=True)
+        
         st.download_button(
             "💾 DOWNLOAD FULL CSV", 
             display_df.to_csv(index=False), 
-            "nifty100-cap-categories.csv",
+            "nifty100-triple-indicator.csv",
             use_container_width=True
         )
 
 st.markdown("---")
 st.info("""
-**🎯 NIFTY 100 CAP SCANNER**:
-✅ **100 stocks** classified: Large/Mid/Small Cap
-✅ **Live market cap** from Yahoo Finance
-✅ **Separate signals** for each category
-✅ RSI(14) + MA20 analysis
+**🎯 NIFTY 100 TRIPLE INDICATOR SCANNER**:
+✅ **RSI(14)** + **MACD(12,26,9)** + **MA20** 
+✅ **5 Signals** with confirmation levels
+✅ **Nifty 50 + Nifty Next 50** classification
 
-**📊 CAP CLASSIFICATION**:
-🟦 **LARGE CAP**: ₹50,000+ Cr (Top 50)
-🟨 **MID CAP**: ₹15K-50K Cr  
-🟢 **SMALL CAP**: <₹15K Cr (Nifty 100)
+**🚀 SIGNAL LOGIC** (Priority: MA20 → MACD → RSI):
+- **SUPER BUY**: All 3 bullish (RSI<35 + Price>MA20 + MACD bullish)
+- **STRONG BUY**: 2/3 bullish 
+- **BUY**: 1/3 bullish
+- **SELL**: RSI>65 OR MACD bearish
+- **HOLD**: Neutral
 
-**⚡ SIGNALS**: Strong Buy/Buy/Sell/Hold per category
-**⏱️ Scan time**: 2-3 minutes for all 100 stocks
+**📊 DISPLAYED COLUMNS**:
+RSI | MACD Line | MACD Signal | Histogram | MA20 | Price/MA20
+
+**⚡ SCAN**: 3 minutes for ALL 100 stocks
 """)
