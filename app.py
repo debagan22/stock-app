@@ -4,8 +4,8 @@ import pandas as pd
 import ta
 import time
 
-st.title("📊 NIFTY SCANNER - 3 Live Charts")
-st.markdown("**Buy | Sell | Hold stocks side by side**")
+st.title("📊 NIFTY SCANNER")
+st.markdown("**Stock Analyzer**")
 
 nifty_stocks = [
     "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS", "ICICIBANK.NS",
