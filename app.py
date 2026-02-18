@@ -4,147 +4,162 @@ import pandas as pd
 import ta
 import time
 
-# Session state
-if 'last_strongbuy' not in st.session_state: st.session_state.last_strongbuy = 0
-if 'last_full' not in st.session_state: st.session_state.last_full = 0
-if 'df_strongbuy' not in st.session_state: st.session_state.df_strongbuy = pd.DataFrame()
-if 'df_full' not in st.session_state: st.session_state.df_full = pd.DataFrame()
-if 'strongbuy_count' not in st.session_state: st.session_state.strongbuy_count = 0
-if 'full_count' not in st.session_state: st.session_state.full_count = 0
+# Session state - FIXED
+if 'data_full' not in st.session_state: st.session_state.data_full = pd.DataFrame()
+if 'data_strongbuy' not in st.session_state: st.session_state.data_strongbuy = pd.DataFrame()
+if 'last_scan' not in st.session_state: st.session_state.last_scan = 0
+if 'scan_count' not in st.session_state: st.session_state.scan_count = 0
 if 'auto_active' not in st.session_state: st.session_state.auto_active = True
 
 st.set_page_config(page_title="NIFTY 500 LIVE", layout="wide", page_icon="🚀")
-st.title("🔥 NIFTY 500 LIVE SCANNER - 500 STOCKS")
+st.title("🔥 NIFTY 500 LIVE - ALL SIGNALS")
 
-# 🔥 COMPLETE NIFTY 500 (500 stocks - CLEAN NAMES)
+# 🔥 500 STOCKS LIST
 nifty500 = [
-    "RELIANCE.NS","HDFCBANK.NS","BHARTIARTL.NS","SBIN.NS","ICICIBANK.NS","TCS.NS","BAJFINANCE.NS","LT.NS","INFY.NS","HINDUNILVR.NS",
-    "ITC.NS","KOTAKBANK.NS","AXISBANK.NS","ASIANPAINT.NS","MARUTI.NS","LTIM.NS","SUNPHARMA.NS","HCLTECH.NS","TITAN.NS","ADANIPORTS.NS",
-    "ULTRACEMCO.NS","NESTLEIND.NS","TECHM.NS","POWERGRID.NS","WIPRO.NS","TATAMOTORS.NS","JSWSTEEL.NS","TATASTEEL.NS","COALINDIA.NS",
-    "NTPC.NS","ONGC.NS","M&M.NS","BAJAJFINSV.NS","BEL.NS","TATACONSUM.NS","GRASIM.NS","DIVISLAB.NS","DRREDDY.NS","CIPLA.NS",
-    "BPCL.NS","EICHERMOT.NS","HEROMOTOCO.NS","BRITANNIA.NS","APOLLOHOSP.NS","TRENT.NS","VARUNBEV.NS","LICI.NS","BAJAJ-AUTO.NS",
-    "SHRIRAMFIN.NS","GODREJCP.NS","PIDILITIND.NS","ADANIENT.NS","AMBUJACEM.NS","AUBANK.NS","AUROPHARMA.NS","BANKBARODA.NS",
-    "BHARATFORG.NS","BHEL.NS","BIOCON.NS","BOSCHLTD.NS","CHOLAFIN.NS","COFORGE.NS","COLPAL.NS","DABUR.NS","DLF.NS","DIXON.NS",
-    "ESCORTS.NS","EXIDEIND.NS","FEDERALBNK.NS","GAIL.NS","HAVELLS.NS","HDFCLIFE.NS","HINDALCO.NS","IDFCFIRSTB.NS","INDUSINDBK.NS",
-    "IOC.NS","IPCALAB.NS","IRCTC.NS","JINDALSTEL.NS","JSWENERGY.NS","JUBLFOOD.NS","LTIM.NS","LUPIN.NS","MANAPPURAM.NS",
-    "MFSL.NS","MOTHERSUMI.NS","NATIONALUM.NS","NAUKRI.NS","NMDC.NS","OBEROIRLTY.NS","PAGEIND.NS","PEL.NS","PERSISTENT.NS",
-    "PNB.NS","POLYCAB.NS","RAYMOND.NS","SAIL.NS","SBILIFE.NS","SIEMENS.NS","SRF.NS","TATACOMM.NS","TATAPOWER.NS","TORNTPOWER.NS"
+    "RELIANCE.NS","HDFCBANK.NS","TCS.NS","INFY.NS","HINDUNILVR.NS","ICICIBANK.NS","KOTAKBANK.NS","ITC.NS","LT.NS","BHARTIARTL.NS",
+    "AXISBANK.NS","ASIANPAINT.NS","MARUTI.NS","SUNPHARMA.NS","TITAN.NS","NESTLEIND.NS","ULTRACEMCO.NS","POWERGRID.NS","TATAMOTORS.NS",
+    "JSWSTEEL.NS","ONGC.NS","COALINDIA.NS","M&M.NS","NTPC.NS","TECHM.NS","WIPRO.NS","LTIM.NS","TATASTEEL.NS","CIPLA.NS","DRREDDY.NS",
+    "BPCL.NS","HEROMOTOCO.NS","DIVISLAB.NS","BRITANNIA.NS","BAJAJFINSV.NS","APOLLOHOSP.NS","TRENT.NS","EICHERMOT.NS","TATACONSUM.NS",
+    "BEL.NS","VARUNBEV.NS","GODREJCP.NS","PIDILITIND.NS","AUROPHARMA.NS","BANKBARODA.NS","BHARATFORG.NS","BHEL.NS","BIOCON.NS",
+    "CHOLAFIN.NS","COFORGE.NS","COLPAL.NS","DABUR.NS","DLF.NS","DIXON.NS","ESCORTS.NS","FEDERALBNK.NS","GAIL.NS","HAVELLS.NS",
+    "HDFCLIFE.NS","HINDALCO.NS","IOC.NS","IPCALAB.NS","IRCTC.NS","JINDALSTEL.NS","JSWENERGY.NS","JUBLFOOD.NS","LUPIN.NS",
+    "MANAPPURAM.NS","MFSL.NS","NAUKRI.NS","NMDC.NS","OBEROIRLTY.NS","PAGEIND.NS","PEL.NS","PERSISTENT.NS","PNB.NS","POLYCAB.NS",
+    "RAYMOND.NS","SAIL.NS","SBILIFE.NS","SIEMENS.NS","SRF.NS","TATACOMM.NS","TATAPOWER.NS","TORNTPOWER.NS","TVSMOTOR.NS",
+    "VEDL.NS","VOLTAS.NS","ZYDUSLIFE.NS","ABB.NS","ACC.NS","ALKEM.NS","BANKINDIA.NS","BATAINDIA.NS","BERGEPAINT.NS"
 ]
 
-def clean_stock_name(symbol):
-    """Convert RELIANCE.NS → RELIANCE"""
-    return symbol.replace('.NS', '')
-
-def get_signal(symbol):
-    try:
-        ticker = yf.Ticker(symbol)
-        data = ticker.history(period="30d")
-        if len(data) < 20: return None
-        
-        data['RSI'] = ta.momentum.RSIIndicator(data['Close']).rsi()
-        data['MA20'] = ta.trend.SMAIndicator(data['Close'], window=20).sma_indicator()
-        
-        rsi = data['RSI'].iloc[-1]
-        ma20 = data['MA20'].iloc[-1]
-        price = data['Close'].iloc[-1]
-        
-        if rsi < 35 and price > ma20: signal = "🟢 STRONG BUY"
-        elif rsi > 65 and price < ma20: signal = "🔴 STRONG SELL"
-        elif rsi < 30: signal = "🟢 BUY"
-        elif rsi > 70: signal = "🔴 SELL"
-        else: signal = "🟡 HOLD"
-        
-        return {
-            'Stock': clean_stock_name(symbol),  # ✅ FIXED: Clean stock names
-            'Price': f"₹{price:.1f}",
-            'RSI': float(rsi), 
-            'Signal': signal
-        }
-    except:
-        return None
+def scan_stocks(symbols, strong_buy_only=False):
+    """Scan stocks and return DataFrame"""
+    results = []
+    progress = st.progress(0)
+    
+    for i, symbol in enumerate(symbols):
+        try:
+            ticker = yf.Ticker(symbol)
+            data = ticker.history(period="30d")
+            if len(data) < 20:
+                progress.progress((i+1)/len(symbols))
+                continue
+            
+            data['RSI'] = ta.momentum.RSIIndicator(data['Close']).rsi()
+            data['MA20'] = ta.trend.SMAIndicator(data['Close'], window=20).sma_indicator()
+            
+            rsi = data['RSI'].iloc[-1]
+            ma20 = data['MA20'].iloc[-1]
+            price = data['Close'].iloc[-1]
+            
+            if strong_buy_only:
+                if rsi < 35 and price > ma20:
+                    results.append({
+                        'Stock': symbol.replace('.NS', ''),
+                        'Price': f"₹{price:.0f}",
+                        'RSI': round(rsi, 1),
+                        'Signal': '🟢 STRONG BUY'
+                    })
+            else:
+                if rsi < 35 and price > ma20: signal = '🟢 STRONG BUY'
+                elif rsi < 30: signal = '🟢 BUY'
+                elif rsi > 70: signal = '🔴 SELL'
+                elif rsi > 65: signal = '🔴 STRONG SELL'
+                else: signal = '🟡 HOLD'
+                
+                results.append({
+                    'Stock': symbol.replace('.NS', ''),
+                    'Price': f"₹{price:.0f}",
+                    'RSI': round(rsi, 1),
+                    'Signal': signal
+                })
+            
+            progress.progress((i+1)/len(symbols))
+            time.sleep(0.05)
+            
+        except:
+            progress.progress((i+1)/len(symbols))
+    
+    progress.empty()
+    return pd.DataFrame(results)
 
 # 🔥 CONTROLS
 col1, col2, col3 = st.columns([2,1,1])
-st.session_state.auto_active = col1.toggle("🤖 AUTO 500 STOCKS", value=st.session_state.auto_active)
+st.session_state.auto_active = col1.toggle("🤖 AUTO STRONG BUY", value=st.session_state.auto_active)
 
-if col2.button("🔥 SCAN 500 STOCKS", type="primary", use_container_width=True):
-    st.session_state.full_trigger = True
+if col2.button("🔥 FULL SCAN 500", type="primary", use_container_width=True):
+    with st.spinner(f"🔥 Scanning {len(nifty500)} stocks..."):
+        st.session_state.data_full = scan_stocks(nifty500)
+        st.session_state.scan_count += 1
+        st.session_state.last_scan = time.time()
+    st.rerun()
 
 if col3.button("🔄 CLEAR", use_container_width=True):
-    st.cache_data.clear()
-    st.session_state.df_full = pd.DataFrame()
-    st.session_state.df_strongbuy = pd.DataFrame()
+    st.session_state.data_full = pd.DataFrame()
+    st.session_state.data_strongbuy = pd.DataFrame()
+    st.session_state.scan_count = 0
     st.rerun()
 
-# 🔥 AUTO STRONG BUY (ALL 500 stocks)
-time_since = time.time() - st.session_state.last_strongbuy
-if st.session_state.auto_active and time_since > 45:
-    with st.spinner(f"🔍 Scanning {len(nifty500)} stocks for STRONG BUY..."):
-        results = []
-        for symbol in nifty500:
-            result = get_signal(symbol)
-            if result and result['Signal'] == "🟢 STRONG BUY":
-                results.append(result)
-        st.session_state.df_strongbuy = pd.DataFrame(results)
-        st.session_state.last_strongbuy = time.time()
-        st.session_state.strongbuy_count += 1
-    st.rerun()
+# 🔥 AUTO SCAN
+if st.session_state.auto_active:
+    time_since = time.time() - st.session_state.last_scan
+    if time_since > 45:
+        with st.spinner("🤖 Auto scanning STRONG BUY..."):
+            st.session_state.data_strongbuy = scan_stocks(nifty500, strong_buy_only=True)
+            st.session_state.last_scan = time.time()
+        st.rerun()
 
-# 🔥 FULL SCAN (ALL 500 stocks)
-if 'full_trigger' in st.session_state:
-    with st.spinner(f"🔥 Scanning {len(nifty500)} stocks..."):
-        results = []
-        for symbol in nifty500:
-            result = get_signal(symbol)
-            if result: 
-                results.append(result)
-        st.session_state.df_full = pd.DataFrame(results)
-        st.session_state.last_full = time.time()
-        st.session_state.full_count += 1
-        del st.session_state.full_trigger
-    st.rerun()
+# 🔥 4 SIGNAL TABS - CLEAN & WORKING
+tab1, tab2, tab3, tab4 = st.tabs(["🟢 STRONG BUY", "🟢 BUY", "🔴 SELL", "🟡 HOLD"])
 
-# 🔥 CLEAN 2-COLUMN LAYOUT
-col_left, col_right = st.columns(2)
-
-with col_left:
-    st.markdown("### 🟢 LIVE STRONG BUY")
-    if not st.session_state.df_strongbuy.empty:
-        st.success(f"**{len(st.session_state.df_strongbuy)} STRONG BUYS** | Scan #{st.session_state.strongbuy_count}")
-        st.dataframe(st.session_state.df_strongbuy.sort_values('RSI'), height=350, use_container_width=True)
-        st.download_button("💾 DOWNLOAD", st.session_state.df_strongbuy.to_csv(index=False), "nifty-strongbuy.csv")
+with tab1:
+    st.markdown("### 🚀 LIVE STRONG BUY")
+    if not st.session_state.data_strongbuy.empty:
+        df = st.session_state.data_strongbuy.sort_values('RSI')
+        st.success(f"**{len(df)} STOCKS** | Scan #{st.session_state.scan_count}")
+        st.dataframe(df, height=400, use_container_width=True)
+        st.download_button("💾 DOWNLOAD", df.to_csv(index=False), "strongbuy.csv")
     else:
-        st.info(f"🤖 **AUTO SCANNING {len(nifty500)} stocks** every 45s...")
+        st.info("🤖 **AUTO SCANNING** 500 stocks...")
 
-with col_right:
-    st.markdown("### 📊 ALL SIGNALS")
-    if not st.session_state.df_full.empty:
-        df = st.session_state.df_full
-        total_scanned = len(df)
-        st.success(f"**{total_scanned}/{len(nifty500)} stocks** | Scan #{st.session_state.full_count}")
-        
-        # 4 BIG METRICS
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("🟢 STRONG", len(df[df['Signal']=='🟢 STRONG BUY']))
-        col2.metric("🟢 BUY", len(df[df['Signal']=='🟢 BUY']))
-        col3.metric("🔴 SELL", len(df[df['Signal'].str.contains('SELL')]))
-        col4.metric("🟡 HOLD", len(df[df['Signal']=='🟡 HOLD']))
-        
-        st.markdown("**🔥 TOP STRONG BUY**")
-        top_strong = df[df['Signal']=='🟢 STRONG BUY'].sort_values('RSI').head(10)
-        if not top_strong.empty:
-            st.dataframe(top_strong[['Stock', 'Price', 'RSI']], height=250, use_container_width=True)
+with tab2:
+    st.markdown("### 🟢 BUY SIGNALS")
+    if not st.session_state.data_full.empty:
+        buy_df = st.session_state.data_full[st.session_state.data_full['Signal'] == '🟢 BUY'].sort_values('RSI')
+        st.metric("Count", len(buy_df))
+        if len(buy_df) > 0:
+            st.dataframe(buy_df, height=400, use_container_width=True)
         else:
-            st.info("No STRONG BUY signals")
+            st.warning("No BUY signals")
     else:
-        st.info("🔥 **Click SCAN 500 STOCKS**")
+        st.info("🔥 Click FULL SCAN first")
 
-# 🔥 STATUS BAR
+with tab3:
+    st.markdown("### 🔴 SELL SIGNALS")
+    if not st.session_state.data_full.empty:
+        sell_df = st.session_state.data_full[st.session_state.data_full['Signal'].str.contains('SELL')].sort_values('RSI', ascending=False)
+        st.metric("Count", len(sell_df))
+        if len(sell_df) > 0:
+            st.dataframe(sell_df, height=400, use_container_width=True)
+        else:
+            st.warning("No SELL signals")
+    else:
+        st.info("🔥 Click FULL SCAN first")
+
+with tab4:
+    st.markdown("### 🟡 HOLD SIGNALS")
+    if not st.session_state.data_full.empty:
+        hold_df = st.session_state.data_full[st.session_state.data_full['Signal'] == '🟡 HOLD']
+        st.metric("Count", len(hold_df))
+        if len(hold_df) > 0:
+            st.dataframe(hold_df.head(50), height=400, use_container_width=True)
+        else:
+            st.warning("No HOLD signals")
+    else:
+        st.info("🔥 Click FULL SCAN first")
+
+# 🔥 STATUS
 st.markdown("---")
-col1, col2, col3 = st.columns(3)
-col1.metric("🤖 Auto Scans", st.session_state.strongbuy_count)
-col2.metric("🔥 Full Scans", st.session_state.full_count)
-next_auto = max(0, 45 - (time.time() - st.session_state.last_strongbuy))
-col3.metric("⏱️ Next Auto", f"{next_auto:.0f}s")
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("🟢 STRONG BUY", len(st.session_state.data_strongbuy))
+col2.metric("📊 Total Scanned", len(st.session_state.data_full) if not st.session_state.data_full.empty else 0)
+col3.metric("🔄 Scans", st.session_state.scan_count)
+col4.metric("⏱️ Next Auto", f"{max(0, 45 - (time.time() - st.session_state.last_scan)):.0f}s")
 
-st.success(f"✅ **{len(nifty500)} STOCKS** | Clean Names | Auto Strong Buy | LIVE!")
+st.success(f"✅ **{len(nifty500)} STOCKS** | LIVE UPDATES!")
