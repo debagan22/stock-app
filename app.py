@@ -279,4 +279,4 @@ if st.session_state.scan_complete:
     st.download_button("💾 DOWNLOAD CSV", df.to_csv(index=False), "nifty100-complete.csv", use_container_width=True)
 
 st.markdown("---")
-st.info("✅ **ALL FIXED**: Complete Nifty 50 list | Clean keys | Parallel scanning | Global tabs | Debug counts")
+st.info("Complete Nifty 50 list | Parallel scanning | Global tabs")
